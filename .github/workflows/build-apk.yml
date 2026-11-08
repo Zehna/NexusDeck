@@ -39,7 +39,17 @@ jobs:
           }
 
       - name: Build Debug APK with Gradle
-        run: ./gradlew assembleDebug --stacktrace
+        run: |
+          ./gradlew assembleDebug --stacktrace 2>&1 | tee apk_log.txt || {
+            echo "::error::Assemble APK failed"
+            grep -E "(e: |error:|FAILED|FAILURE:|Exception)" apk_log.txt | head -n 40 | while IFS= read -r line; do
+              echo "::error::$line"
+            done
+            tail -n 60 apk_log.txt | while IFS= read -r line; do
+              echo "::error::$line"
+            done
+            exit 1
+          }
 
       - name: Upload Debug APK Artifact
         uses: actions/upload-artifact@v4

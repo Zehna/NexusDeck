@@ -34,11 +34,8 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -58,6 +55,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.PathBuilder
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -70,6 +70,94 @@ import com.nexusdeck.app.core.downloader.WebAdBlocker
 import com.nexusdeck.app.core.downloader.WebDownloadSniffer
 import com.nexusdeck.app.ui.theme.NexusPalette
 import java.net.URLEncoder
+
+val BrowserForwardIcon: ImageVector by lazy {
+    ImageVector.Builder(
+        name = "BrowserForward",
+        defaultWidth = 24.dp,
+        defaultHeight = 24.dp,
+        viewportWidth = 24f,
+        viewportHeight = 24f
+    ).apply {
+        val path = PathBuilder().apply {
+            moveTo(12f, 4f)
+            lineTo(10.59f, 5.41f)
+            lineTo(16.17f, 11f)
+            horizontalLineTo(4f)
+            verticalLineTo(13f)
+            horizontalLineTo(16.17f)
+            lineTo(10.59f, 18.59f)
+            lineTo(12f, 20f)
+            lineTo(20f, 12f)
+            close()
+        }.getNodes()
+        addPath(path, fill = SolidColor(Color.White))
+    }.build()
+}
+
+val BrowserRefreshIcon: ImageVector by lazy {
+    ImageVector.Builder(
+        name = "BrowserRefresh",
+        defaultWidth = 24.dp,
+        defaultHeight = 24.dp,
+        viewportWidth = 24f,
+        viewportHeight = 24f
+    ).apply {
+        val path = PathBuilder().apply {
+            moveTo(17.65f, 6.35f)
+            curveTo(16.2f, 4.9f, 14.21f, 4f, 12f, 4f)
+            curveTo(7.58f, 4f, 4.01f, 7.58f, 4.01f, 12f)
+            curveTo(4.01f, 16.42f, 7.58f, 20f, 12f, 20f)
+            curveTo(15.73f, 20f, 18.84f, 17.45f, 19.73f, 14f)
+            horizontalLineTo(17.65f)
+            curveTo(16.83f, 16.33f, 14.61f, 18f, 12f, 18f)
+            curveTo(8.69f, 18f, 6f, 15.31f, 6f, 12f)
+            curveTo(6f, 8.69f, 8.69f, 6f, 12f, 6f)
+            curveTo(13.66f, 6f, 15.14f, 6.69f, 16.22f, 7.78f)
+            lineTo(13f, 11f)
+            horizontalLineTo(20f)
+            verticalLineTo(4f)
+            close()
+        }.getNodes()
+        addPath(path, fill = SolidColor(Color.White))
+    }.build()
+}
+
+val BrowserLockIcon: ImageVector by lazy {
+    ImageVector.Builder(
+        name = "BrowserLock",
+        defaultWidth = 24.dp,
+        defaultHeight = 24.dp,
+        viewportWidth = 24f,
+        viewportHeight = 24f
+    ).apply {
+        val path = PathBuilder().apply {
+            moveTo(18f, 8f)
+            horizontalLineTo(17f)
+            verticalLineTo(6f)
+            curveTo(17f, 3.24f, 14.76f, 1f, 12f, 1f)
+            curveTo(9.24f, 1f, 7f, 3.24f, 7f, 6f)
+            verticalLineTo(8f)
+            horizontalLineTo(6f)
+            curveTo(4.9f, 8f, 4f, 8.9f, 4f, 10f)
+            verticalLineTo(20f)
+            curveTo(4f, 21.1f, 4.9f, 22f, 6f, 22f)
+            horizontalLineTo(18f)
+            curveTo(19.1f, 22f, 20f, 21.1f, 20f, 20f)
+            verticalLineTo(10f)
+            curveTo(20f, 8.9f, 19.1f, 8f, 18f, 8f)
+            close()
+            moveTo(9f, 6f)
+            curveTo(9f, 4.34f, 10.34f, 3f, 12f, 3f)
+            curveTo(13.66f, 3f, 15f, 4.34f, 15f, 6f)
+            verticalLineTo(8f)
+            horizontalLineTo(9f)
+            verticalLineTo(6f)
+            close()
+        }.getNodes()
+        addPath(path, fill = SolidColor(Color.White))
+    }.build()
+}
 
 data class RomBookmark(
     val name: String,
@@ -229,7 +317,7 @@ fun NexusWebBrowser(
                         modifier = Modifier.size(34.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.ArrowForward,
+                            imageVector = BrowserForwardIcon,
                             contentDescription = "Forward",
                             tint = if (canGoForward) Color.White else NexusPalette.TextMuted.copy(alpha = 0.4f),
                             modifier = Modifier.size(18.dp)
@@ -244,7 +332,7 @@ fun NexusWebBrowser(
                         modifier = Modifier.size(34.dp)
                     ) {
                         Icon(
-                            imageVector = if (isLoading) Icons.Default.Close else Icons.Default.Refresh,
+                            imageVector = if (isLoading) Icons.Default.Close else BrowserRefreshIcon,
                             contentDescription = if (isLoading) "Stop" else "Reload",
                             tint = Color.White,
                             modifier = Modifier.size(18.dp)
@@ -288,7 +376,7 @@ fun NexusWebBrowser(
                         leadingIcon = {
                             val isHttps = currentUrl.startsWith("https://", ignoreCase = true)
                             Icon(
-                                imageVector = if (isHttps) Icons.Default.Lock else Icons.Default.Search,
+                                imageVector = if (isHttps) BrowserLockIcon else Icons.Default.Search,
                                 contentDescription = "Security",
                                 tint = if (isHttps) Color(0xFF10B981) else NexusPalette.TextMuted,
                                 modifier = Modifier.size(14.dp)
