@@ -117,6 +117,8 @@ import com.nexusdeck.app.ui.settings.SettingsScreen
 import com.nexusdeck.app.ui.theme.NexusPalette
 import com.nexusdeck.app.core.engine.EngineManager
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
 
 private data class ActiveGameSession(
     val game: GameItem,
