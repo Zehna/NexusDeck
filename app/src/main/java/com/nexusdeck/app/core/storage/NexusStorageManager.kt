@@ -360,10 +360,6 @@ object NexusStorageManager {
         return dir
     }
 
-    fun getPlatformGamesDir(context: Context, platform: GamePlatform): File {
-        return getPlatformGamesDir(context as Context?, platform)
-    }
-
     /**
      * Mengembalikan direktori BIOS bersama (/storage/emulated/0/NexusDeck/bios/).
      * Berisi berkas BIOS resmi seperti scph1001.bin (PS1) dan scph39001.bin (PS2).
@@ -377,10 +373,6 @@ object NexusStorageManager {
         return dir
     }
 
-    fun getBiosDir(context: Context): File {
-        return getBiosDir(context as Context?)
-    }
-
     /**
      * Mengembalikan direktori Firmware bersama (/storage/emulated/0/NexusDeck/firmware/).
      * Berisi berkas Firmware resmi seperti PS3UPDAT.PUP (Sony PS3).
@@ -392,10 +384,6 @@ object NexusStorageManager {
             dir.mkdirs()
         }
         return dir
-    }
-
-    fun getFirmwareDir(context: Context): File {
-        return getFirmwareDir(context as Context?)
     }
 
     /**
