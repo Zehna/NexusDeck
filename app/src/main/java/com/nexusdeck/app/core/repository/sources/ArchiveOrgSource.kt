@@ -95,14 +95,79 @@ class ArchiveOrgSource : GameRepositorySource {
         requestedPlatform: GamePlatform?
     ): List<GameItem> {
         val items = mutableListOf<GameItem>()
-        val root = JSONObject(jsonString)
-        val responseObj = root.optJSONObject("response") ?: return emptyList()
-        val docs = responseObj.optJSONArray("docs") ?: return emptyList()
+        try {
+            val root = JSONObject(jsonString)
+            val responseObj = root.optJSONObject("response")
+            val docs = responseObj?.optJSONArray("docs")
 
-        for (i in 0 until docs.length()) {
-            val doc = docs.optJSONObject(i) ?: continue
-            val identifier = doc.optString("identifier").trim()
-            val rawTitle = doc.optString("title").trim()
+            if (docs != null && docs.length() > 0) {
+                for (i in 0 until docs.length()) {
+                    val doc = docs.optJSONObject(i) ?: continue
+                    val identifier = doc.optString("identifier").trim()
+                    val rawTitle = doc.optString("title").trim()
+                    if (identifier.isEmpty() || rawTitle.isEmpty()) continue
+
+                    val cleanTitle = rawTitle
+                        .replace(Regex("\\s*\\((USA|Europe|Japan|En,Fr,De,Es,It|ISO|ROM|v\\d+.*?)\\)", RegexOption.IGNORE_CASE), "")
+                        .trim()
+                        .ifEmpty { rawTitle }
+
+                    val itemSizeBytes = doc.optLong("item_size", 0L)
+                    val subjectBlob = doc.opt("subject")?.toString().orEmpty()
+                    val resolvedPlatform = requestedPlatform ?: inferPlatformFromMetadata(
+                        title = rawTitle,
+                        subjects = subjectBlob,
+                        sizeBytes = itemSizeBytes
+                    )
+
+                    val fileSizeLabel = formatFileSize(itemSizeBytes, resolvedPlatform)
+                    val coverUrl = "https://archive.org/services/img/$identifier"
+                    val directDownloadUrl = "https://archive.org/compress/$identifier"
+
+                    items.add(
+                        createGameItem(
+                            id = "archive_${identifier.lowercase(Locale.US)}",
+                            title = cleanTitle,
+                            platform = resolvedPlatform,
+                            coverUrl = coverUrl,
+                            fileSizeLabel = fileSizeLabel,
+                            downloadUrl = directDownloadUrl
+                        )
+                    )
+                }
+            }
+        } catch (_: Throwable) {
+            // Android SDK stub or parser error, fall back below
+        }
+
+        if (items.isNotEmpty()) {
+            return items
+        }
+
+        return parseArchiveJsonFallback(jsonString, requestedPlatform)
+    }
+
+    private fun parseArchiveJsonFallback(
+        jsonString: String,
+        requestedPlatform: GamePlatform?
+    ): List<GameItem> {
+        val items = mutableListOf<GameItem>()
+        val docPattern = Regex("""\{[^{}]*"identifier"\s*:\s*"([^"]+)"[^{}]*\}""", RegexOption.DOT_MATCHES_ALL)
+        val idPattern = Regex(""""identifier"\s*:\s*"([^"]+)"""")
+        val titlePattern = Regex(""""title"\s*:\s*"([^"]+)"""")
+        val sizePattern = Regex(""""item_size"\s*:\s*(\d+)""")
+        val subjectPattern = Regex(""""subject"\s*:\s*(\[[^\]]*\]|"[^"]*")""")
+
+        val docsSlice = if (jsonString.contains("\"docs\"")) {
+            jsonString.substringAfter("\"docs\"").substringBeforeLast("]")
+        } else {
+            jsonString
+        }
+
+        for (match in docPattern.findAll(docsSlice)) {
+            val block = match.value
+            val identifier = idPattern.find(block)?.groupValues?.get(1)?.trim().orEmpty()
+            val rawTitle = titlePattern.find(block)?.groupValues?.get(1)?.trim().orEmpty()
             if (identifier.isEmpty() || rawTitle.isEmpty()) continue
 
             val cleanTitle = rawTitle
@@ -110,8 +175,8 @@ class ArchiveOrgSource : GameRepositorySource {
                 .trim()
                 .ifEmpty { rawTitle }
 
-            val itemSizeBytes = doc.optLong("item_size", 0L)
-            val subjectBlob = doc.opt("subject")?.toString().orEmpty()
+            val itemSizeBytes = sizePattern.find(block)?.groupValues?.get(1)?.toLongOrNull() ?: 0L
+            val subjectBlob = subjectPattern.find(block)?.groupValues?.get(1).orEmpty()
             val resolvedPlatform = requestedPlatform ?: inferPlatformFromMetadata(
                 title = rawTitle,
                 subjects = subjectBlob,
