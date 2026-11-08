@@ -249,7 +249,7 @@ class ArchiveOrgSource : GameRepositorySource {
         downloadUrl: String
     ): GameItem {
         val (minRam, targetEmulator) = when (platform) {
-            GamePlatform.NINTENDO -> 2 to TargetEmulator.NexusRetroCore
+            GamePlatform.NINTENDO -> 2 to TargetEmulator.Lemuroid
             GamePlatform.PSP -> 3 to TargetEmulator.PPSSPP
             GamePlatform.PS2 -> 4 to TargetEmulator.ARMSX2
             GamePlatform.PC -> 6 to TargetEmulator.GameNative

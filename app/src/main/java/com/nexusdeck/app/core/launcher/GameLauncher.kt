@@ -68,6 +68,7 @@ object GameLauncher {
         val intent = Intent(Intent.ACTION_VIEW).apply {
             setDataAndType(romUri, "*/*")
             setPackage(resolvedPackage)
+            clipData = android.content.ClipData.newRawUri("ROM_URI", romUri)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
 
@@ -104,6 +105,10 @@ object GameLauncher {
                 }
                 resolvedPackage.contains("melonDS") -> {
                     putExtra("rom_path", romPath)
+                }
+                resolvedPackage.contains("lemuroid") -> {
+                    putExtra("rom_path", romPath)
+                    putExtra("bootPath", romPath)
                 }
             }
         }

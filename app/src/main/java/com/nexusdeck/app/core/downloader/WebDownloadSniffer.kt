@@ -75,13 +75,7 @@ data class SniffedDownload(
         }
 
         fun defaultCoverForPlatform(platform: GamePlatform): String {
-            return when (platform) {
-                GamePlatform.PSP -> "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=600&q=80"
-                GamePlatform.NINTENDO -> "https://images.unsplash.com/photo-1613770324026-69487fa44b36?auto=format&fit=crop&w=600&q=80"
-                GamePlatform.PS2 -> "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=600&q=80"
-                GamePlatform.PC -> "https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=600&q=80"
-                GamePlatform.PS3 -> "https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=600&q=80"
-            }
+            return ""
         }
 
         fun extractHost(url: String): String {
@@ -322,7 +316,7 @@ object WebDownloadSniffer {
         val fileName = extractFileName(url, contentDisposition)
         val platform = inferPlatform(url, fileName, contentLength)
         val targetEmulator = when (platform) {
-            GamePlatform.NINTENDO -> TargetEmulator.NexusRetroCore
+            GamePlatform.NINTENDO -> TargetEmulator.Lemuroid
             GamePlatform.PSP -> TargetEmulator.PPSSPP
             GamePlatform.PS2 -> TargetEmulator.ARMSX2
             GamePlatform.PC -> TargetEmulator.GameNative

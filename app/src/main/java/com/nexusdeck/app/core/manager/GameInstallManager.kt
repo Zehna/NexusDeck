@@ -20,6 +20,12 @@ import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
 
+data class AutoPlayEvent(
+    val game: GameItem,
+    val romPath: String,
+    val eventId: Long = System.currentTimeMillis()
+)
+
 class GameInstallManager(
     context: Context,
     private val coroutineScope: CoroutineScope
@@ -40,6 +46,13 @@ class GameInstallManager(
 
     private val _lastPlayedGameId = MutableStateFlow<String?>(prefs.getString(KEY_LAST_PLAYED, null))
     val lastPlayedGameId: StateFlow<String?> = _lastPlayedGameId.asStateFlow()
+
+    private val _autoPlayTrigger = MutableStateFlow<AutoPlayEvent?>(null)
+    val autoPlayTrigger: StateFlow<AutoPlayEvent?> = _autoPlayTrigger.asStateFlow()
+
+    fun consumeAutoPlayTrigger() {
+        _autoPlayTrigger.value = null
+    }
 
     private val activeInstallJobs = mutableMapOf<String, Job>()
 
@@ -160,6 +173,7 @@ class GameInstallManager(
             val finalRomPath = realDownloader.writeVerifiedLocalGameFile(game)
             persistInstalledPath(game.id, finalRomPath)
             updateGameState(game.id, GameState.Installed(romPath = finalRomPath))
+            _autoPlayTrigger.value = AutoPlayEvent(game = game, romPath = finalRomPath)
             activeInstallJobs.remove(game.id)
         }
     }

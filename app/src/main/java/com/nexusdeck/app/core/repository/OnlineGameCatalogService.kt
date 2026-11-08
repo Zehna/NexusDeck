@@ -131,11 +131,11 @@ class OnlineGameCatalogService(
                 id = "mirror_${slug}_${resolvedPlatform.name.lowercase()}_p$page",
                 title = "$formattedTitle (Failover Web Mirror)",
                 platform = resolvedPlatform,
-                coverUrl = "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=600&q=80",
+                coverUrl = "",
                 minRamGb = if (resolvedPlatform == GamePlatform.PS2) 4 else 3,
                 recommendedSocKeywords = listOf("snapdragon_8", "snapdragon_7", "dimensity_8"),
                 targetEmulator = when (resolvedPlatform) {
-                    GamePlatform.NINTENDO -> com.nexusdeck.app.core.model.TargetEmulator.NexusRetroCore
+                    GamePlatform.NINTENDO -> com.nexusdeck.app.core.model.TargetEmulator.Lemuroid
                     GamePlatform.PSP -> com.nexusdeck.app.core.model.TargetEmulator.PPSSPP
                     GamePlatform.PS2 -> com.nexusdeck.app.core.model.TargetEmulator.ARMSX2
                     GamePlatform.PC -> com.nexusdeck.app.core.model.TargetEmulator.GameNative

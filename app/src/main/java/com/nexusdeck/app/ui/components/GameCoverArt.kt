@@ -26,6 +26,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
+import com.nexusdeck.app.core.artwork.ConsoleSteelbookCard
+import com.nexusdeck.app.core.artwork.UniversalArtworkScraper
 import com.nexusdeck.app.core.model.GamePlatform
 
 fun platformBadgeColor(platform: GamePlatform): Color {
@@ -46,29 +48,38 @@ fun GameCoverArt(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val accent = platformBadgeColor(platform)
+    val effectiveUrl = if (coverUrl.isBlank() || coverUrl.contains("unsplash.com", ignoreCase = true)) {
+        val clean = UniversalArtworkScraper.cleanTitle(title)
+        if (platform == GamePlatform.PC) {
+            val steamId = UniversalArtworkScraper.getSteamAppId(clean)
+            if (steamId != null) UniversalArtworkScraper.getSteamBannerUrl(steamId)
+            else UniversalArtworkScraper.getLibretroThumbnailUrl(platform, clean)
+        } else {
+            UniversalArtworkScraper.getLibretroThumbnailUrl(platform, clean)
+        }
+    } else {
+        coverUrl
+    }
 
     Box(modifier = modifier) {
         SubcomposeAsyncImage(
             model = ImageRequest.Builder(context)
-                .data(coverUrl)
+                .data(effectiveUrl)
                 .crossfade(true)
                 .build(),
             contentDescription = "$title Box Art",
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize(),
             loading = {
-                OfflinePosterFallback(
+                ConsoleSteelbookCard(
                     title = title,
-                    platform = platform,
-                    accent = accent
+                    platform = platform
                 )
             },
             error = {
-                OfflinePosterFallback(
+                ConsoleSteelbookCard(
                     title = title,
-                    platform = platform,
-                    accent = accent
+                    platform = platform
                 )
             }
         )
@@ -80,7 +91,7 @@ fun GameCoverArt(
                 .background(
                     brush = Brush.verticalGradient(
                         colors = listOf(
-                            Color(0x440B0B0E),
+                            Color(0x330B0B0E),
                             Color.Transparent,
                             Color(0xCC0B0B0E),
                             Color(0xF50B0B0E)

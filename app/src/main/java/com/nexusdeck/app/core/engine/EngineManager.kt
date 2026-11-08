@@ -158,16 +158,16 @@ object EngineManager {
         version = "latest"
     )
 
-    val retroArchEngine = EngineInfo(
-        id = "retroarch",
-        name = "RetroArch",
+    val lemuroidEngine = EngineInfo(
+        id = "lemuroid",
+        name = "Lemuroid",
         platform = GamePlatform.NINTENDO,
-        targetEmulator = TargetEmulator.NexusRetroCore,
-        primaryPackageName = "com.retroarch",
-        downloadUrl = "https://buildbot.libretro.com/stable/1.19.1/android/RetroArch.apk",
-        estimatedSizeLabel = "~95 MB",
-        description = "Universal modular retro core multi-system runner.",
-        version = "1.19.1"
+        targetEmulator = TargetEmulator.Lemuroid,
+        primaryPackageName = "com.swordfish.lemuroid",
+        downloadUrl = "https://github.com/Swordfish90/Lemuroid/releases/download/1.17.0/lemuroid-app-free-dynamic-release.apk",
+        estimatedSizeLabel = "~22 MB",
+        description = "Emulator retro zero-setup all-in-one (GBA, GBC, NES, SNES, NDS, N64) dengan core bawaan mGBA, Snes9x, MelonDS & Mupen64 tanpa unduh core manual.",
+        version = "1.17.0"
     )
 
     /**
@@ -181,7 +181,7 @@ object EngineManager {
         lime3dsEngine,
         sudachiEngine,
         armsx3Engine,
-        retroArchEngine
+        lemuroidEngine
     )
 
     // =========================================================================
@@ -197,7 +197,7 @@ object EngineManager {
             GamePlatform.PSP -> ppssppEngine
             GamePlatform.PS2 -> netherSx2Engine
             GamePlatform.PC -> gameNativeEngine
-            GamePlatform.NINTENDO -> melonDsEngine
+            GamePlatform.NINTENDO -> lemuroidEngine
             GamePlatform.PS3 -> armsx3Engine
         }
     }
@@ -211,7 +211,7 @@ object EngineManager {
             TargetEmulator.Lime3DS -> lime3dsEngine
             TargetEmulator.Sudachi -> sudachiEngine
             TargetEmulator.ARMSX3 -> armsx3Engine
-            TargetEmulator.NexusRetroCore -> retroArchEngine
+            TargetEmulator.Lemuroid, TargetEmulator.NexusRetroCore -> lemuroidEngine
         }
     }
 

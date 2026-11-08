@@ -158,6 +158,55 @@ fun DashboardScreen(
         mutableStateOf<LauncherResult.EmulatorNotFound?>(null)
     }
     var detectedDownloadForDialog by remember { mutableStateOf<SniffedDownload?>(null) }
+    var pendingAutoPlayGame by remember { mutableStateOf<GameItem?>(null) }
+
+    // Auto-Play Pipeline: Ketika download & ekstraksi game mencapai 100%, sistem langsung boot game secara otomatis
+    val autoPlayEvent by installManager.autoPlayTrigger.collectAsState()
+    LaunchedEffect(autoPlayEvent) {
+        val event = autoPlayEvent ?: return@LaunchedEffect
+        installManager.consumeAutoPlayTrigger()
+
+        val game = event.game
+        val romPath = event.romPath
+        installManager.markLastPlayed(game)
+
+        val engine = EngineManager.getEngineForGame(game)
+        val isInstalled = EngineManager.isEngineInstalled(context, engine)
+        val optimalConfig = AutoTuningEngine.generateOptimalConfig(spec = hardwareSpec, game = game)
+
+        if (isInstalled) {
+            val result = GameLauncher.launchGame(
+                context = context,
+                game = game,
+                romPath = romPath,
+                engineConfig = optimalConfig,
+                autoTuneEnabled = true
+            )
+            when (result) {
+                is LauncherResult.Launched -> {
+                    selectedGameForSheet = null
+                    pendingAutoPlayGame = null
+                    Toast.makeText(context, "Memulai ${game.title}...", Toast.LENGTH_SHORT).show()
+                }
+                is LauncherResult.EmulatorNotFound -> {
+                    pendingAutoPlayGame = game
+                    missingEmulatorResult = result
+                }
+                is LauncherResult.LaunchError -> {
+                    Toast.makeText(context, result.message, Toast.LENGTH_SHORT).show()
+                }
+            }
+        } else {
+            // Jika engine belum terpasang: Munculkan dialog 1-klik pasang engine otomatis
+            pendingAutoPlayGame = game
+            missingEmulatorResult = LauncherResult.EmulatorNotFound(
+                emulatorName = engine.name,
+                packageName = engine.primaryPackageName,
+                downloadUrl = engine.downloadUrl,
+                engineInfo = engine
+            )
+        }
+    }
 
     // Jika sesi In-App Game Player sedang aktif, otomatis masuk ke layar Landscape InAppGameScreen
     val currentSession = activeGameSession
@@ -644,12 +693,15 @@ fun DashboardScreen(
 
     val missingEmulator = missingEmulatorResult
     if (missingEmulator != null) {
-        val targetGame = selectedGameForSheet ?: activeGameSession?.game
+        val targetGame = pendingAutoPlayGame ?: selectedGameForSheet ?: activeGameSession?.game
         val engineInfo = missingEmulator.engineInfo ?: targetGame?.let { EngineManager.getEngineForGame(it) } ?: EngineManager.ppssppEngine
         EngineInstallerDialog(
             engineInfo = engineInfo,
             gameTitle = targetGame?.title ?: missingEmulator.emulatorName,
-            onDismiss = { missingEmulatorResult = null },
+            onDismiss = {
+                missingEmulatorResult = null
+                pendingAutoPlayGame = null
+            },
             onLaunchAfterInstall = {
                 missingEmulatorResult = null
                 targetGame?.let { game ->
@@ -667,6 +719,7 @@ fun DashboardScreen(
                         if (res is LauncherResult.Launched) {
                             selectedGameForSheet = null
                             activeGameSession = null
+                            pendingAutoPlayGame = null
                         }
                     }
                 }

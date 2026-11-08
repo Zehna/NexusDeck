@@ -6,6 +6,7 @@ import com.nexusdeck.app.ui.components.platformBadgeColor
 import com.nexusdeck.app.core.achievements.RetroAchievementItem
 import com.nexusdeck.app.core.achievements.RetroAchievementsService
 import com.nexusdeck.app.core.achievements.RetroGameTrophySummary
+import com.nexusdeck.app.core.artwork.UniversalArtworkScraper
 import com.nexusdeck.app.core.downloader.SniffedDownload
 import com.nexusdeck.app.core.downloader.WebAdBlocker
 import com.nexusdeck.app.core.downloader.WebDownloadSniffer
@@ -745,7 +746,7 @@ class NexusDeckComprehensiveStressTest {
         assertEquals("ppsspp", EngineManager.getEngineForPlatform(GamePlatform.PSP).id)
         assertEquals("nethersx2", EngineManager.getEngineForPlatform(GamePlatform.PS2).id)
         assertEquals("gamenative", EngineManager.getEngineForPlatform(GamePlatform.PC).id)
-        assertEquals("melonds", EngineManager.getEngineForPlatform(GamePlatform.NINTENDO).id)
+        assertEquals("lemuroid", EngineManager.getEngineForPlatform(GamePlatform.NINTENDO).id)
         assertEquals("armsx3", EngineManager.getEngineForPlatform(GamePlatform.PS3).id)
 
         assertEquals("ppsspp", EngineManager.getEngineForEmulator(TargetEmulator.PPSSPP).id)
@@ -755,7 +756,8 @@ class NexusDeckComprehensiveStressTest {
         assertEquals("lime3ds", EngineManager.getEngineForEmulator(TargetEmulator.Lime3DS).id)
         assertEquals("sudachi", EngineManager.getEngineForEmulator(TargetEmulator.Sudachi).id)
         assertEquals("armsx3", EngineManager.getEngineForEmulator(TargetEmulator.ARMSX3).id)
-        assertEquals("retroarch", EngineManager.getEngineForEmulator(TargetEmulator.NexusRetroCore).id)
+        assertEquals("lemuroid", EngineManager.getEngineForEmulator(TargetEmulator.Lemuroid).id)
+        assertEquals("lemuroid", EngineManager.getEngineForEmulator(TargetEmulator.NexusRetroCore).id)
     }
 
     @Test
@@ -1066,5 +1068,74 @@ class NexusDeckComprehensiveStressTest {
         assertTrue("CHD score must be higher than ISO", chdScore > isoScore)
         assertTrue("CSO score must be higher than ISO", csoScore > isoScore)
         assertTrue("ISO score must be higher than BIN", isoScore > binScore)
+    }
+
+    @Test
+    fun test46_lemuroidZeroSetupEngineRegistryAndLookups() {
+        val lemuroid = EngineManager.lemuroidEngine
+        assertEquals("lemuroid", lemuroid.id)
+        assertEquals("Lemuroid", lemuroid.name)
+        assertEquals(GamePlatform.NINTENDO, lemuroid.platform)
+        assertEquals(TargetEmulator.Lemuroid, lemuroid.targetEmulator)
+        assertEquals("com.swordfish.lemuroid", lemuroid.primaryPackageName)
+        assertEquals("https://github.com/Swordfish90/Lemuroid/releases/download/1.17.0/lemuroid-app-free-dynamic-release.apk", lemuroid.downloadUrl)
+        assertTrue(lemuroid.downloadUrl.endsWith(".apk"))
+
+        // Pastikan tidak ada lagi referensi id "retroarch" di registeredEngines
+        val registeredIds = EngineManager.registeredEngines.map { it.id }
+        assertTrue("Lemuroid must be registered", registeredIds.contains("lemuroid"))
+        assertFalse("RetroArch must be purged from registeredEngines", registeredIds.contains("retroarch"))
+    }
+
+    @Test
+    fun test47_universalArtworkScraper_titleCleaningAndCdnUrls() {
+        val rawTitle = "Pokemon - Emerald Version (USA, Europe) [v1.0].gba"
+        val clean = UniversalArtworkScraper.cleanTitle(rawTitle)
+        assertEquals("Pokemon - Emerald Version", clean)
+
+        val rawIso = "God_of_War_II (USA) (En,Fr,De).iso"
+        val cleanIso = UniversalArtworkScraper.cleanTitle(rawIso)
+        assertEquals("God of War II", cleanIso)
+
+        val pspUrl = UniversalArtworkScraper.getLibretroThumbnailUrl(GamePlatform.PSP, "Tekken 6")
+        assertTrue(pspUrl.contains("Sony_-_PlayStation_Portable"))
+        assertTrue(pspUrl.contains("Tekken%206.png"))
+
+        val steamId = UniversalArtworkScraper.getSteamAppId("Fallout: New Vegas")
+        assertEquals(22380, steamId)
+        val steamBanner = UniversalArtworkScraper.getSteamBannerUrl(22380)
+        assertEquals("https://cdn.cloudflare.steamstatic.com/steam/apps/22380/header.jpg", steamBanner)
+
+        val game = GameItem(
+            id = "test_art",
+            title = "Half-Life 2",
+            platform = GamePlatform.PC,
+            coverUrl = "",
+            minRamGb = 4,
+            recommendedSocKeywords = emptyList(),
+            targetEmulator = TargetEmulator.GameNative
+        )
+        val resolved = UniversalArtworkScraper.resolveCoverUrl(game)
+        assertEquals("https://cdn.cloudflare.steamstatic.com/steam/apps/220/header.jpg", resolved)
+    }
+
+    @Test
+    fun test48_autoPlayEvent_pipelineModel() {
+        val testGame = GameItem(
+            id = "test_auto_play",
+            title = "Super Mario Advance 4",
+            platform = GamePlatform.NINTENDO,
+            coverUrl = "",
+            minRamGb = 2,
+            recommendedSocKeywords = emptyList(),
+            targetEmulator = TargetEmulator.Lemuroid
+        )
+        val event = com.nexusdeck.app.core.manager.AutoPlayEvent(
+            game = testGame,
+            romPath = "/games/nintendo/sma4.gba"
+        )
+        assertEquals("test_auto_play", event.game.id)
+        assertEquals("/games/nintendo/sma4.gba", event.romPath)
+        assertTrue(event.eventId > 0L)
     }
 }

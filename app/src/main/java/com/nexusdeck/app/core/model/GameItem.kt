@@ -14,7 +14,8 @@ enum class GamePlatform(
 
 enum class TargetEmulator(val displayName: String) {
     PPSSPP("PPSSPP Core"),
-    NexusRetroCore("NexusRetro Core"),
+    Lemuroid("Lemuroid Core"),
+    NexusRetroCore("Lemuroid Core"),
     GameNative("GameNative"),
     ARMSX2("ARMSX2 / NetherSX2"),
     ARMSX3("ARMSX3"),
