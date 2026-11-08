@@ -4,8 +4,13 @@ import android.content.pm.ActivityInfo
 import com.nexusdeck.app.core.downloader.SniffedDownload
 import com.nexusdeck.app.core.downloader.WebAdBlocker
 import com.nexusdeck.app.core.downloader.WebDownloadSniffer
+import com.nexusdeck.app.core.engine.EngineDownloadProgress
+import com.nexusdeck.app.core.engine.EngineInfo
+import com.nexusdeck.app.core.engine.EngineManager
 import com.nexusdeck.app.core.engine.NexusEmbeddedCoreRunner
 import com.nexusdeck.app.core.engine.VirtualInputState
+import com.nexusdeck.app.core.launcher.GameLauncher
+import com.nexusdeck.app.core.launcher.LauncherResult
 import com.nexusdeck.app.core.model.CompatibilityTier
 import com.nexusdeck.app.core.model.EngineExecutionMode
 import com.nexusdeck.app.core.model.GameItem
@@ -668,5 +673,149 @@ class NexusDeckComprehensiveStressTest {
         // Exact byte conversions
         assertEquals("500 MB", WebDownloadSniffer.formatFileSize(524288000L, GamePlatform.PSP))
         assertEquals("4.20 GB", WebDownloadSniffer.formatFileSize(4509715660L, GamePlatform.PS2))
+    }
+
+    // =========================================================================
+    // 6. Unified In-App Engine Manager & Native Game Launcher Edge Cases
+    // =========================================================================
+
+    @Test
+    fun test29_engineManager_officialReleaseRegistryMapping() {
+        val engines = EngineManager.registeredEngines
+        assertTrue("Registry must contain at least 6 official engines", engines.size >= 6)
+
+        // PSP: PPSSPP
+        val ppsspp = EngineManager.ppssppEngine
+        assertEquals("ppsspp", ppsspp.id)
+        assertEquals("PPSSPP", ppsspp.name)
+        assertEquals(GamePlatform.PSP, ppsspp.platform)
+        assertEquals(TargetEmulator.PPSSPP, ppsspp.targetEmulator)
+        assertEquals("org.ppsspp.ppsspp", ppsspp.primaryPackageName)
+        assertEquals("https://github.com/hrydgard/ppsspp/releases/download/v1.20.4/ppsspp.apk", ppsspp.downloadUrl)
+        assertTrue(ppsspp.downloadUrl.endsWith(".apk"))
+
+        // PS2: NetherSX2 Classic
+        val nether = EngineManager.netherSx2Engine
+        assertEquals("nethersx2", nether.id)
+        assertEquals("NetherSX2 Classic", nether.name)
+        assertEquals(GamePlatform.PS2, nether.platform)
+        assertEquals(TargetEmulator.ARMSX2, nether.targetEmulator)
+        assertEquals("xyz.aethersx2.android", nether.primaryPackageName)
+        assertTrue("NetherSX2 must support alternate armsx2 package", nether.alternatePackageNames.contains("come.nanodata.armsx2"))
+        assertEquals("https://github.com/Trixarian/NetherSX2-classic/releases/download/v2.2n-3668/NetherSX2-v2.2n-3668.apk", nether.downloadUrl)
+
+        // PC: GameNative / Winlator
+        val gameNative = EngineManager.gameNativeEngine
+        assertEquals("gamenative", gameNative.id)
+        assertEquals(GamePlatform.PC, gameNative.platform)
+        assertEquals(TargetEmulator.GameNative, gameNative.targetEmulator)
+        assertEquals("app.gamenative", gameNative.primaryPackageName)
+        assertEquals("https://github.com/utkarshdalal/GameNative/releases/latest/download/GameNative.apk", gameNative.downloadUrl)
+
+        // Nintendo DS: melonDS
+        val melonDs = EngineManager.melonDsEngine
+        assertEquals("melonds", melonDs.id)
+        assertEquals("net.kuribo64.melonDS", melonDs.primaryPackageName)
+        assertEquals("https://github.com/rafaelvcaetano/melonDS-android/releases/download/1.9.3/melonDS-1.9.3.apk", melonDs.downloadUrl)
+
+        // Nintendo 3DS: Lime3DS
+        val lime3ds = EngineManager.lime3dsEngine
+        assertEquals("lime3ds", lime3ds.id)
+        assertEquals("io.github.lime3ds", lime3ds.primaryPackageName)
+        assertEquals("https://github.com/Lime3DS/Lime3DS/releases/latest/download/lime3ds-android.apk", lime3ds.downloadUrl)
+
+        // Nintendo Switch: Sudachi
+        val sudachi = EngineManager.sudachiEngine
+        assertEquals("sudachi", sudachi.id)
+        assertEquals("org.sudachi.sudachi_emu", sudachi.primaryPackageName)
+        assertEquals("https://github.com/emuplace/sudachi.emuplace.app/releases/latest/download/sudachi.apk", sudachi.downloadUrl)
+    }
+
+    @Test
+    fun test30_engineManager_platformAndEmulatorLookups() {
+        assertEquals("ppsspp", EngineManager.getEngineForPlatform(GamePlatform.PSP).id)
+        assertEquals("nethersx2", EngineManager.getEngineForPlatform(GamePlatform.PS2).id)
+        assertEquals("gamenative", EngineManager.getEngineForPlatform(GamePlatform.PC).id)
+        assertEquals("melonds", EngineManager.getEngineForPlatform(GamePlatform.NINTENDO).id)
+        assertEquals("armsx3", EngineManager.getEngineForPlatform(GamePlatform.PS3).id)
+
+        assertEquals("ppsspp", EngineManager.getEngineForEmulator(TargetEmulator.PPSSPP).id)
+        assertEquals("nethersx2", EngineManager.getEngineForEmulator(TargetEmulator.ARMSX2).id)
+        assertEquals("gamenative", EngineManager.getEngineForEmulator(TargetEmulator.GameNative).id)
+        assertEquals("melonds", EngineManager.getEngineForEmulator(TargetEmulator.MelonDS).id)
+        assertEquals("lime3ds", EngineManager.getEngineForEmulator(TargetEmulator.Lime3DS).id)
+        assertEquals("sudachi", EngineManager.getEngineForEmulator(TargetEmulator.Sudachi).id)
+        assertEquals("armsx3", EngineManager.getEngineForEmulator(TargetEmulator.ARMSX3).id)
+        assertEquals("retroarch", EngineManager.getEngineForEmulator(TargetEmulator.NexusRetroCore).id)
+    }
+
+    @Test
+    fun test31_engineManager_gameTargetResolutionAndFallback() {
+        val testPs2 = GameItem(
+            id = "test_ps2",
+            title = "Final Fantasy X",
+            platform = GamePlatform.PS2,
+            coverUrl = "",
+            minRamGb = 4,
+            recommendedSocKeywords = listOf("dimensity"),
+            targetEmulator = TargetEmulator.ARMSX2
+        )
+        val enginePs2 = EngineManager.getEngineForGame(testPs2)
+        assertEquals("nethersx2", enginePs2.id)
+
+        val testLime = GameItem(
+            id = "test_3ds",
+            title = "Pokemon Sun",
+            platform = GamePlatform.NINTENDO,
+            coverUrl = "",
+            minRamGb = 4,
+            recommendedSocKeywords = listOf("snapdragon"),
+            targetEmulator = TargetEmulator.Lime3DS
+        )
+        val engineLime = EngineManager.getEngineForGame(testLime)
+        assertEquals("lime3ds", engineLime.id)
+    }
+
+    @Test
+    fun test32_engineManager_allPackageNamesIncludesAlternates() {
+        val netherPackages = EngineManager.netherSx2Engine.allPackageNames
+        assertEquals(2, netherPackages.size)
+        assertTrue(netherPackages.contains("xyz.aethersx2.android"))
+        assertTrue(netherPackages.contains("come.nanodata.armsx2"))
+
+        val gameNativePackages = EngineManager.gameNativeEngine.allPackageNames
+        assertTrue(gameNativePackages.contains("app.gamenative"))
+        assertTrue(gameNativePackages.contains("com.winlator"))
+    }
+
+    @Test
+    fun test33_engineDownloadProgressModelHierarchy() {
+        val progressDownloading: EngineDownloadProgress = EngineDownloadProgress.Downloading(
+            progress = 0.65f,
+            downloadedBytes = 18200000L,
+            totalBytes = 28000000L
+        )
+        assertTrue(progressDownloading is EngineDownloadProgress.Downloading)
+        assertEquals(0.65f, (progressDownloading as EngineDownloadProgress.Downloading).progress, 0.001f)
+
+        val dummyFile = java.io.File("/tmp/ppsspp.apk")
+        val progressCompleted: EngineDownloadProgress = EngineDownloadProgress.Completed(apkFile = dummyFile)
+        assertTrue(progressCompleted is EngineDownloadProgress.Completed)
+        assertEquals(dummyFile, (progressCompleted as EngineDownloadProgress.Completed).apkFile)
+
+        val progressFailed: EngineDownloadProgress = EngineDownloadProgress.Failed("Network timeout")
+        assertTrue(progressFailed is EngineDownloadProgress.Failed)
+        assertEquals("Network timeout", (progressFailed as EngineDownloadProgress.Failed).error)
+    }
+
+    @Test
+    fun test34_engineManager_downloadUrlsAllHttpsAndApk() {
+        for (engine in EngineManager.registeredEngines) {
+            assertTrue("URL must be HTTPS: ${engine.downloadUrl}", engine.downloadUrl.startsWith("https://"))
+            assertTrue("URL must end with .apk: ${engine.downloadUrl}", engine.downloadUrl.endsWith(".apk"))
+            assertTrue("Estimated size must not be blank: ${engine.name}", engine.estimatedSizeLabel.isNotBlank())
+            assertTrue("Description must not be blank: ${engine.name}", engine.description.isNotBlank())
+            assertNotNull("Engine ID must be lookup-able: ${engine.id}", EngineManager.getEngineById(engine.id))
+        }
     }
 }

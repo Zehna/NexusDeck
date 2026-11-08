@@ -16,8 +16,11 @@ enum class TargetEmulator(val displayName: String) {
     PPSSPP("PPSSPP Core"),
     NexusRetroCore("NexusRetro Core"),
     GameNative("GameNative"),
-    ARMSX2("ARMSX2"),
-    ARMSX3("ARMSX3")
+    ARMSX2("ARMSX2 / NetherSX2"),
+    ARMSX3("ARMSX3"),
+    MelonDS("melonDS"),
+    Lime3DS("Lime3DS"),
+    Sudachi("Sudachi")
 }
 
 enum class EngineExecutionMode(

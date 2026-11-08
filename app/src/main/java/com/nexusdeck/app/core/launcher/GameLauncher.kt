@@ -5,16 +5,20 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.util.Log
+import androidx.core.content.FileProvider
+import com.nexusdeck.app.core.engine.EngineInfo
+import com.nexusdeck.app.core.engine.EngineManager
 import com.nexusdeck.app.core.model.EngineConfig
 import com.nexusdeck.app.core.model.GameItem
-import com.nexusdeck.app.core.model.TargetEmulator
+import java.io.File
 
 sealed class LauncherResult {
     data object Launched : LauncherResult()
     data class EmulatorNotFound(
         val emulatorName: String,
         val packageName: String,
-        val downloadUrl: String
+        val downloadUrl: String,
+        val engineInfo: EngineInfo? = null
     ) : LauncherResult()
     data class LaunchError(val message: String) : LauncherResult()
 }
@@ -23,42 +27,93 @@ object GameLauncher {
 
     private const val TAG = "NexusDeckLauncher"
 
-    private data class EmulatorConfig(
-        val emulatorName: String,
-        val packageName: String,
-        val downloadUrl: String
-    )
-
-    private fun getEmulatorConfig(targetEmulator: TargetEmulator): EmulatorConfig {
-        return when (targetEmulator) {
-            TargetEmulator.PPSSPP -> EmulatorConfig(
-                emulatorName = "PPSSPP",
-                packageName = "org.ppsspp.ppsspp",
-                downloadUrl = "https://www.ppsspp.org/download/"
+    /**
+     * Menghasilkan URI yang aman untuk file ROM lokal menggunakan FileProvider.
+     * Mengeliminasi FileUriExposedException pada Android modern (SDK 24+).
+     */
+    fun getSafeRomUri(context: Context, romPath: String): Uri {
+        val file = File(romPath)
+        return try {
+            FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                file
             )
-            TargetEmulator.NexusRetroCore -> EmulatorConfig(
-                emulatorName = "RetroArch",
-                packageName = "com.retroarch",
-                downloadUrl = "https://www.retroarch.com/?page=platforms"
-            )
-            TargetEmulator.ARMSX2 -> EmulatorConfig(
-                emulatorName = "ARMSX2",
-                packageName = "come.nanodata.armsx2",
-                downloadUrl = "https://github.com/ARMSX2/ARMSX2/releases"
-            )
-            TargetEmulator.ARMSX3 -> EmulatorConfig(
-                emulatorName = "ARMSX3",
-                packageName = "com.armsx3.play",
-                downloadUrl = "https://github.com/ARMSX3/ARMSX3/releases"
-            )
-            TargetEmulator.GameNative -> EmulatorConfig(
-                emulatorName = "GameNative",
-                packageName = "app.gamenative",
-                downloadUrl = "https://gamenative.app/download"
-            )
+        } catch (_: Exception) {
+            Uri.fromFile(file)
         }
     }
 
+    /**
+     * Membangun Intent peluncuran dengan parameter URI FileProvider, flags perizinan baca,
+     * serta extras spesifik untuk booting langsung ke game pada target emulator:
+     * - PPSSPP: SHORTCUT_PATH & bootPath
+     * - NetherSX2 / AetherSX2: bootPath & source
+     * - Lime3DS: GamePath
+     * - GameNative / Winlator: game_path & container_id
+     * - melonDS / Sudachi: Intent ACTION_VIEW dengan URI ROM
+     */
+    fun buildLaunchIntent(
+        context: Context,
+        game: GameItem,
+        romPath: String,
+        engineConfig: EngineConfig,
+        autoTuneEnabled: Boolean = true,
+        targetPackage: String? = null
+    ): Intent {
+        val engine = EngineManager.getEngineForGame(game)
+        val resolvedPackage = targetPackage ?: EngineManager.getInstalledPackage(context, engine) ?: engine.primaryPackageName
+        val romUri = getSafeRomUri(context, romPath)
+
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(romUri, "*/*")
+            setPackage(resolvedPackage)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+
+            // Parameter booting universal & auto-tuning profile
+            putExtra("rom_path", romPath)
+            putExtra("game_id", game.id)
+            putExtra("game_title", game.title)
+            putExtra("extra_auto_tune_enabled", autoTuneEnabled)
+            putExtra("extra_driver_name", engineConfig.driverName)
+            putExtra("extra_target_resolution", engineConfig.targetResolution)
+            putExtra("extra_renderer_backend", engineConfig.rendererBackend)
+            putExtra("extra_dxvk_version", engineConfig.dxvkVersion)
+            putExtra("extra_cpu_dynarec_preset", engineConfig.cpuDynarecPreset)
+
+            // Extras spesifik per engine target
+            when {
+                resolvedPackage.contains("ppsspp") -> {
+                    putExtra("org.ppsspp.ppsspp.SHORTCUT_PATH", romPath)
+                    putExtra("bootPath", romPath)
+                }
+                resolvedPackage.contains("aethersx2") || resolvedPackage.contains("armsx2") -> {
+                    putExtra("bootPath", romPath)
+                    putExtra("source", "nexusdeck")
+                }
+                resolvedPackage.contains("lime3ds") || resolvedPackage.contains("citra") -> {
+                    putExtra("GamePath", romPath)
+                }
+                resolvedPackage.contains("gamenative") || resolvedPackage.contains("winlator") -> {
+                    putExtra("game_path", romPath)
+                    putExtra("container_id", game.id)
+                }
+                resolvedPackage.contains("sudachi") -> {
+                    putExtra("GamePath", romPath)
+                }
+                resolvedPackage.contains("melonDS") -> {
+                    putExtra("rom_path", romPath)
+                }
+            }
+        }
+
+        return intent
+    }
+
+    /**
+     * Memeriksa keberadaan engine dan mengeksekusi peluncuran game asli secara seamless.
+     */
     fun launchGame(
         context: Context,
         game: GameItem,
@@ -66,14 +121,16 @@ object GameLauncher {
         engineConfig: EngineConfig,
         autoTuneEnabled: Boolean = true
     ): LauncherResult {
-        val config = getEmulatorConfig(game.targetEmulator)
+        val engine = EngineManager.getEngineForGame(game)
+        val installedPackage = EngineManager.getInstalledPackage(context, engine)
 
         Log.i(
             TAG,
             """
             ============================================================
-            [NexusDeck] Preparing Launch for "${game.title}" (${game.platform.displayName})
-            Target Emulator : ${config.emulatorName} (${config.packageName})
+            [NexusDeck] Preparing Native Launch for "${game.title}" (${game.platform.displayName})
+            Resolved Engine : ${engine.name} (ID: ${engine.id})
+            Target Package  : ${installedPackage ?: engine.primaryPackageName} (Installed: ${installedPackage != null})
             ROM Path        : $romPath
             Auto-Tune Active: $autoTuneEnabled
             -> GPU Driver   : ${engineConfig.driverName}
@@ -85,73 +142,50 @@ object GameLauncher {
             """.trimIndent()
         )
 
-        if (!isPackageInstalled(context, config.packageName)) {
-            Log.w(TAG, "Target emulator ${config.packageName} not installed on device.")
+        if (installedPackage == null) {
+            Log.w(TAG, "Target engine ${engine.name} not installed on device.")
             return LauncherResult.EmulatorNotFound(
-                emulatorName = config.emulatorName,
-                packageName = config.packageName,
-                downloadUrl = config.downloadUrl
+                emulatorName = engine.name,
+                packageName = engine.primaryPackageName,
+                downloadUrl = engine.downloadUrl,
+                engineInfo = engine
             )
         }
 
         return try {
-            val viewIntent = Intent(Intent.ACTION_VIEW).apply {
-                setDataAndType(Uri.parse("file://$romPath"), "*/*")
-                setPackage(config.packageName)
-                applyLaunchExtras(game, romPath, engineConfig, autoTuneEnabled)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
+            val launchIntent = buildLaunchIntent(
+                context = context,
+                game = game,
+                romPath = romPath,
+                engineConfig = engineConfig,
+                autoTuneEnabled = autoTuneEnabled,
+                targetPackage = installedPackage
+            )
 
-            if (viewIntent.resolveActivity(context.packageManager) != null) {
-                context.startActivity(viewIntent)
+            if (launchIntent.resolveActivity(context.packageManager) != null) {
+                context.startActivity(launchIntent)
                 LauncherResult.Launched
             } else {
-                val fallbackIntent =
-                    context.packageManager.getLaunchIntentForPackage(config.packageName)?.apply {
-                        applyLaunchExtras(game, romPath, engineConfig, autoTuneEnabled)
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    }
+                val fallbackIntent = context.packageManager.getLaunchIntentForPackage(installedPackage)?.apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    putExtra("rom_path", romPath)
+                    putExtra("bootPath", romPath)
+                    putExtra("game_id", game.id)
+                }
 
                 if (fallbackIntent != null) {
                     context.startActivity(fallbackIntent)
                     LauncherResult.Launched
                 } else {
-                    LauncherResult.LaunchError(
-                        "Tidak dapat membuka ${config.emulatorName}."
-                    )
+                    LauncherResult.LaunchError("Tidak dapat membuka ${engine.name}.")
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to launch ${game.title}", e)
+            Log.e(TAG, "Gagal menjalankan game ${game.title}", e)
             LauncherResult.LaunchError(
                 e.localizedMessage ?: "Gagal menjalankan ${game.title}."
             )
-        }
-    }
-
-    private fun Intent.applyLaunchExtras(
-        game: GameItem,
-        romPath: String,
-        engineConfig: EngineConfig,
-        autoTuneEnabled: Boolean
-    ) {
-        putExtra("rom_path", romPath)
-        putExtra("game_id", game.id)
-        putExtra("game_title", game.title)
-        putExtra("extra_auto_tune_enabled", autoTuneEnabled)
-        putExtra("extra_driver_name", engineConfig.driverName)
-        putExtra("extra_target_resolution", engineConfig.targetResolution)
-        putExtra("extra_renderer_backend", engineConfig.rendererBackend)
-        putExtra("extra_dxvk_version", engineConfig.dxvkVersion)
-        putExtra("extra_cpu_dynarec_preset", engineConfig.cpuDynarecPreset)
-    }
-
-    private fun isPackageInstalled(context: Context, packageName: String): Boolean {
-        return try {
-            context.packageManager.getPackageInfo(packageName, 0)
-            true
-        } catch (_: PackageManager.NameNotFoundException) {
-            false
         }
     }
 }

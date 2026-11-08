@@ -69,6 +69,7 @@ import com.nexusdeck.app.core.model.GamePlatform
 import com.nexusdeck.app.core.model.GameState
 import com.nexusdeck.app.core.model.HardwareSpec
 import com.nexusdeck.app.core.optimizer.AutoTuningEngine
+import com.nexusdeck.app.ui.components.EngineInstallerDialog
 import com.nexusdeck.app.ui.components.GameCoverArt
 import com.nexusdeck.app.ui.components.platformBadgeColor
 import com.nexusdeck.app.ui.theme.NexusPalette
@@ -692,6 +693,16 @@ fun EmulatorNotFoundDialog(
     missingEmulator: LauncherResult.EmulatorNotFound,
     onDismiss: () -> Unit
 ) {
+    val engine = missingEmulator.engineInfo
+    if (engine != null) {
+        EngineInstallerDialog(
+            engineInfo = engine,
+            gameTitle = missingEmulator.emulatorName,
+            onDismiss = onDismiss
+        )
+        return
+    }
+
     val context = LocalContext.current
 
     AlertDialog(

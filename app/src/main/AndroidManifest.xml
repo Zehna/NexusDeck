@@ -11,13 +11,20 @@
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
 
+    <!-- In-App Engine Manager APK Installation Permission -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
     <!-- Package Visibility Queries for Target Emulators (Android 11+ / SDK 35) -->
     <queries>
         <package android:name="org.ppsspp.ppsspp" />
-        <package android:name="com.retroarch" />
+        <package android:name="xyz.aethersx2.android" />
         <package android:name="come.nanodata.armsx2" />
-        <package android:name="com.armsx3.play" />
         <package android:name="app.gamenative" />
+        <package android:name="net.kuribo64.melonDS" />
+        <package android:name="io.github.lime3ds" />
+        <package android:name="org.sudachi.sudachi_emu" />
+        <package android:name="com.retroarch" />
+        <package android:name="com.armsx3.play" />
     </queries>
 
     <application
@@ -26,6 +33,17 @@
         android:supportsRtl="true"
         android:usesCleartextTraffic="true"
         android:theme="@style/Theme.NexusDeck">
+
+        <!-- FileProvider for Secure ROM Sharing & In-App APK Engine Installation -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
 
         <activity
             android:name=".MainActivity"

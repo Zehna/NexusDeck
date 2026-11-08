@@ -92,12 +92,14 @@ import com.nexusdeck.app.ui.browser.NexusWebBrowser
 import com.nexusdeck.app.ui.components.BottomNavBar
 import com.nexusdeck.app.ui.components.CategoryPillFilter
 import com.nexusdeck.app.ui.components.ConsoleFilterTabs
+import com.nexusdeck.app.ui.components.EngineInstallerDialog
 import com.nexusdeck.app.ui.components.GameCoverArt
 import com.nexusdeck.app.ui.components.NexusBottomTab
 import com.nexusdeck.app.ui.components.consoleCardFocus
 import com.nexusdeck.app.ui.components.nextCategoryFilter
 import com.nexusdeck.app.ui.components.platformBadgeColor
 import com.nexusdeck.app.ui.theme.NexusPalette
+import com.nexusdeck.app.core.engine.EngineManager
 import kotlinx.coroutines.delay
 
 private data class ActiveGameSession(
@@ -568,9 +570,33 @@ fun DashboardScreen(
 
     val missingEmulator = missingEmulatorResult
     if (missingEmulator != null) {
-        EmulatorNotFoundDialog(
-            missingEmulator = missingEmulator,
-            onDismiss = { missingEmulatorResult = null }
+        val targetGame = selectedGameForSheet ?: activeGameSession?.game
+        val engineInfo = missingEmulator.engineInfo ?: targetGame?.let { EngineManager.getEngineForGame(it) } ?: EngineManager.ppssppEngine
+        EngineInstallerDialog(
+            engineInfo = engineInfo,
+            gameTitle = targetGame?.title ?: missingEmulator.emulatorName,
+            onDismiss = { missingEmulatorResult = null },
+            onLaunchAfterInstall = {
+                missingEmulatorResult = null
+                targetGame?.let { game ->
+                    val state = installManager.getStateForGame(game.id)
+                    val romPath = (state as? GameState.Installed)?.romPath ?: ""
+                    if (romPath.isNotBlank()) {
+                        val optimalConfig = AutoTuningEngine.generateOptimalConfig(spec = hardwareSpec, game = game)
+                        val res = GameLauncher.launchGame(
+                            context = context,
+                            game = game,
+                            romPath = romPath,
+                            engineConfig = optimalConfig,
+                            autoTuneEnabled = true
+                        )
+                        if (res is LauncherResult.Launched) {
+                            selectedGameForSheet = null
+                            activeGameSession = null
+                        }
+                    }
+                }
+            }
         )
     }
 
