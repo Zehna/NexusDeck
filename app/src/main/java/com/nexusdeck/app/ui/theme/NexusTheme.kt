@@ -11,12 +11,16 @@ import androidx.compose.ui.unit.sp
 
 object NexusPalette {
     val DeepDarkBlack = Color(0xFF0B0B0E)
+    val BackgroundDeep = DeepDarkBlack
     val ElevatedBackground = Color(0xFF13121A)
     val SurfaceCard = Color(0xFF1A1826)
     val SurfaceCardElevated = Color(0xFF221F32)
     val CardBorder = Color(0xFF262438)
+    val BorderCard = CardBorder
     val PrimaryViolet = Color(0xFF7C3AED)
     val SecondaryPurple = Color(0xFFC084FC)
+    val AccentVioletLight = SecondaryPurple
+    val NeonCyan = Color(0xFF06B6D4)
     val DeepVioletSurface = Color(0xFF2E1065)
     val TextPrimary = Color(0xFFF8FAFC)
     val TextSecondary = Color(0xFFA1A1AA)
@@ -26,8 +30,14 @@ object NexusPalette {
         colors = listOf(PrimaryViolet, SecondaryPurple)
     )
 
+    val HorizontalVioletGradient = VioletGradient
+
     val VerticalVioletGradient = Brush.linearGradient(
         colors = listOf(PrimaryViolet, SecondaryPurple)
+    )
+
+    val CyanNeonGradient = Brush.linearGradient(
+        colors = listOf(Color(0xFF06B6D4), Color(0xFF38BDF8))
     )
 }
 
