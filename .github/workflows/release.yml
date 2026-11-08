@@ -1,0 +1,49 @@
+name: Publish GitHub Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build & Publish Release APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Make gradlew executable
+        run: chmod +x gradlew
+
+      - name: Run Unit Tests
+        run: ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Build APK
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Rename APK for Release
+        run: cp app/build/outputs/apk/debug/app-debug.apk NexusDeck-v1.0.0.apk
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "NexusDeck v1.0.0 - Universal Handheld Gaming Orchestrator"
+          tag_name: ${{ github.ref_name }}
+          files: NexusDeck-v1.0.0.apk
+          draft: false
+          prerelease: false
+          generate_release_notes: true
