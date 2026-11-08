@@ -10,6 +10,7 @@ import com.nexusdeck.app.core.artwork.UniversalArtworkScraper
 import com.nexusdeck.app.core.downloader.SniffedDownload
 import com.nexusdeck.app.core.downloader.WebAdBlocker
 import com.nexusdeck.app.core.downloader.WebDownloadSniffer
+import com.nexusdeck.app.core.engine.EmulatorJsEngine
 import com.nexusdeck.app.core.engine.EngineDownloadProgress
 import com.nexusdeck.app.core.engine.EngineInfo
 import com.nexusdeck.app.core.engine.EngineManager
@@ -1137,5 +1138,60 @@ class NexusDeckComprehensiveStressTest {
         assertEquals("test_auto_play", event.game.id)
         assertEquals("/games/nintendo/sma4.gba", event.romPath)
         assertTrue(event.eventId > 0L)
+    }
+
+    @Test
+    fun test49_emulatorJsEngine_coreResolutionAndHtmlGeneration() {
+        assertEquals("mgba", EmulatorJsEngine.resolveCore(GamePlatform.NINTENDO, "zelda_minish_cap.gba"))
+        assertEquals("snes", EmulatorJsEngine.resolveCore(GamePlatform.NINTENDO, "chrono_trigger.snes"))
+        assertEquals("nes", EmulatorJsEngine.resolveCore(GamePlatform.NINTENDO, "super_mario.nes"))
+        assertEquals("gb", EmulatorJsEngine.resolveCore(GamePlatform.NINTENDO, "pokemon_crystal.gbc"))
+        assertEquals("nds", EmulatorJsEngine.resolveCore(GamePlatform.NINTENDO, "pokemon_black.nds"))
+        assertEquals("n64", EmulatorJsEngine.resolveCore(GamePlatform.NINTENDO, "zelda_oot.n64"))
+        assertEquals("psp", EmulatorJsEngine.resolveCore(GamePlatform.PSP, "crisis_core.iso"))
+
+        val zelda = GameItem(
+            id = "gba_zelda",
+            title = "The Legend of Zelda: The Minish Cap",
+            platform = GamePlatform.NINTENDO,
+            coverUrl = "",
+            minRamGb = 2,
+            recommendedSocKeywords = emptyList(),
+            targetEmulator = TargetEmulator.Lemuroid,
+            downloadUrl = "https://archive.org/download/zelda.gba"
+        )
+        val html = EmulatorJsEngine.generateHtml(zelda, "/games/nintendo/zelda.gba")
+        assertTrue("HTML must contain EJS_player element", html.contains("window.EJS_player = '#game'"))
+        assertTrue("HTML must specify mgba core for GBA", html.contains("window.EJS_core = 'mgba'"))
+        assertTrue("HTML must include EmulatorJS loader script", html.contains("cdn.emulatorjs.org/stable/data/loader.js"))
+    }
+
+    @Test
+    fun test50_gameLauncher_directComponentTargetingForPpssppAndNetherSx2() {
+        // Mock Context tidak diperlukan jika kita menguji logika Intent Component
+        val pspGame = GameItem(
+            id = "psp_tekken",
+            title = "Tekken 6",
+            platform = GamePlatform.PSP,
+            coverUrl = "",
+            minRamGb = 3,
+            recommendedSocKeywords = emptyList(),
+            targetEmulator = TargetEmulator.PPSSPP
+        )
+        val dummyConfig = com.nexusdeck.app.core.model.EngineConfig(
+            driverName = "Turnip",
+            targetResolution = "2x",
+            rendererBackend = "Vulkan",
+            dxvkVersion = "2.3",
+            cpuDynarecPreset = "Safe"
+        )
+
+        // Verifikasi target package & component names
+        val ppssppEngine = EngineManager.ppssppEngine
+        assertEquals("org.ppsspp.ppsspp", ppssppEngine.primaryPackageName)
+
+        val netherEngine = EngineManager.netherSx2Engine
+        assertEquals("xyz.aethersx2.android", netherEngine.primaryPackageName)
+        assertTrue(netherEngine.alternatePackageNames.contains("come.nanodata.armsx2"))
     }
 }

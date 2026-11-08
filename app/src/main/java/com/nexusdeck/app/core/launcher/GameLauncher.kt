@@ -86,10 +86,22 @@ object GameLauncher {
             // Extras spesifik per engine target
             when {
                 resolvedPackage.contains("ppsspp") -> {
+                    // Direct component launch ke PpssppActivity untuk melompati menu dan langsung memutar game
+                    component = android.content.ComponentName(resolvedPackage, "org.ppsspp.ppsspp.PpssppActivity")
+                    setDataAndType(romUri, "application/octet-stream")
                     putExtra("org.ppsspp.ppsspp.SHORTCUT_PATH", romPath)
+                    putExtra("SHORTCUT_PATH", romPath)
                     putExtra("bootPath", romPath)
                 }
                 resolvedPackage.contains("aethersx2") || resolvedPackage.contains("armsx2") -> {
+                    // Direct component launch ke EmulationActivity NetherSX2/AetherSX2 dengan bootPath absolut
+                    val activityClass = if (resolvedPackage.contains("armsx2")) {
+                        "come.nanodata.armsx2.EmulationActivity"
+                    } else {
+                        "xyz.aethersx2.android.EmulationActivity"
+                    }
+                    component = android.content.ComponentName(resolvedPackage, activityClass)
+                    setDataAndType(romUri, "application/octet-stream")
                     putExtra("bootPath", romPath)
                     putExtra("source", "nexusdeck")
                 }
@@ -107,6 +119,7 @@ object GameLauncher {
                     putExtra("rom_path", romPath)
                 }
                 resolvedPackage.contains("lemuroid") -> {
+                    setDataAndType(romUri, "application/octet-stream")
                     putExtra("rom_path", romPath)
                     putExtra("bootPath", romPath)
                 }
@@ -167,15 +180,19 @@ object GameLauncher {
                 targetPackage = installedPackage
             )
 
-            if (launchIntent.resolveActivity(context.packageManager) != null) {
+            try {
                 context.startActivity(launchIntent)
                 LauncherResult.Launched
-            } else {
+            } catch (anfe: android.content.ActivityNotFoundException) {
+                Log.w(TAG, "Direct component launch failed, trying package launch intent: ${anfe.message}")
                 val fallbackIntent = context.packageManager.getLaunchIntentForPackage(installedPackage)?.apply {
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    clipData = android.content.ClipData.newRawUri("ROM_URI", getSafeRomUri(context, romPath))
+                    setDataAndType(getSafeRomUri(context, romPath), "application/octet-stream")
                     putExtra("rom_path", romPath)
                     putExtra("bootPath", romPath)
+                    putExtra("SHORTCUT_PATH", romPath)
                     putExtra("game_id", game.id)
                 }
 

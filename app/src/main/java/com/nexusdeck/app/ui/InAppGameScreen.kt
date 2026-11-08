@@ -1,11 +1,18 @@
 package com.nexusdeck.app.ui
 
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.pm.ActivityInfo
-import android.widget.Toast
+import android.view.ViewGroup
+import android.webkit.WebChromeClient
+import android.webkit.WebSettings
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,55 +20,52 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.nexusdeck.app.core.engine.NexusEmbeddedCoreRunner
-import com.nexusdeck.app.core.engine.VirtualInputState
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import com.nexusdeck.app.core.engine.EmulatorJsEngine
 import com.nexusdeck.app.core.model.EngineConfig
-import com.nexusdeck.app.core.model.EngineExecutionMode
 import com.nexusdeck.app.core.model.GameItem
 import com.nexusdeck.app.ui.components.platformBadgeColor
-import com.nexusdeck.app.ui.controls.VirtualGamepad
-import com.nexusdeck.app.ui.controls.VirtualGamepadButton
 import com.nexusdeck.app.ui.theme.NexusPalette
 import java.util.Locale
 
-private data class ActionPulseEffect(
-    val xNorm: Float,
-    val yNorm: Float,
-    val color: Color,
-    val radiusProgress: Float
-)
-
+/**
+ * Real In-App Embedded Game Player yang ditenagai oleh WebAssembly EmulatorJS Runtime.
+ * Memuat ROM biner asli game (The Legend of Zelda, Pokemon, dll.), merender grafis pixel asli,
+ * audio stereo jernih, serta kontrol sentuh virtual responsif di layar ponsel.
+ */
+@SuppressLint("SetJavaScriptEnabled")
 @Composable
 fun InAppGameScreen(
     game: GameItem,
@@ -72,71 +76,20 @@ fun InAppGameScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
-
-    // Jalur A: Embedded Core Runner untuk In-App Playable (PSP / Nintendo)
-    val embeddedRunner = remember {
-        NexusEmbeddedCoreRunner(coroutineScope)
-    }
-    val coreTelemetry by embeddedRunner.telemetry.collectAsState()
+    var showExitDialog by remember { mutableStateOf(false) }
+    var isHudVisible by remember { mutableStateOf(true) }
 
     DisposableEffect(game, romPath) {
         val activity = context as? Activity
         activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
 
-        if (game.executionMode == EngineExecutionMode.IN_APP_PLAYABLE) {
-            embeddedRunner.loadRom(game, romPath)
-        }
-
         onDispose {
             activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-            embeddedRunner.stop()
         }
     }
-
-    var joystickX by remember { mutableFloatStateOf(0f) }
-    var joystickY by remember { mutableFloatStateOf(0f) }
-    val pressedButtons = remember { mutableStateListOf<VirtualGamepadButton>() }
-    val pulseEffects = remember { mutableStateListOf<ActionPulseEffect>() }
-
-    var playerNormX by remember { mutableFloatStateOf(0.5f) }
-    var playerNormY by remember { mutableFloatStateOf(0.54f) }
-    var gridScrollPhase by remember { mutableFloatStateOf(0f) }
-    var showExitDialog by remember { mutableStateOf(false) }
 
     BackHandler {
         showExitDialog = true
-    }
-
-    LaunchedEffect(showExitDialog) {
-        var lastFrameTimeNanos = 0L
-
-        while (!showExitDialog) {
-            withFrameNanos { frameTimeNanos ->
-                if (lastFrameTimeNanos == 0L) {
-                    lastFrameTimeNanos = frameTimeNanos
-                }
-                val deltaSec = ((frameTimeNanos - lastFrameTimeNanos) / 1_000_000_000f)
-                    .coerceIn(0.001f, 0.05f)
-                lastFrameTimeNanos = frameTimeNanos
-
-                val speedMultiplier =
-                    if (pressedButtons.contains(VirtualGamepadButton.R1)) 0.58f else 0.34f
-                playerNormX = (playerNormX + joystickX * speedMultiplier * deltaSec)
-                    .coerceIn(0.14f, 0.86f)
-                playerNormY = (playerNormY + joystickY * speedMultiplier * deltaSec)
-                    .coerceIn(0.22f, 0.82f)
-
-                gridScrollPhase = (gridScrollPhase + deltaSec * 1.4f) % 1f
-
-                val updatedPulses = pulseEffects.mapNotNull { pulse ->
-                    val nextProgress = pulse.radiusProgress + deltaSec * 1.8f
-                    if (nextProgress < 1f) pulse.copy(radiusProgress = nextProgress) else null
-                }
-                pulseEffects.clear()
-                pulseEffects.addAll(updatedPulses)
-            }
-        }
     }
 
     val platformAccent = platformBadgeColor(game.platform)
@@ -144,317 +97,237 @@ fun InAppGameScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(NexusPalette.DeepDarkBlack)
+            .background(Color.Black)
     ) {
-        // 1. Background Canvas: Frame Rendering Game 60 FPS Interaktif
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val w = size.width
-            val h = size.height
-            val horizonY = h * 0.36f
-
-            drawRect(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        NexusPalette.DeepDarkBlack,
-                        platformAccent.copy(alpha = 0.22f),
-                        NexusPalette.DeepDarkBlack
+        // 1. Real WebAssembly EmulatorJS Engine View
+        AndroidView(
+            factory = { ctx ->
+                WebView(ctx).apply {
+                    layoutParams = ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
                     )
-                )
-            )
+                    settings.apply {
+                        javaScriptEnabled = true
+                        domStorageEnabled = true
+                        allowFileAccess = true
+                        allowContentAccess = true
+                        allowFileAccessFromFileURLs = true
+                        allowUniversalAccessFromFileURLs = true
+                        mediaPlaybackRequiresUserGesture = false
+                        useWideViewPort = true
+                        loadWithOverviewMode = true
+                        cacheMode = WebSettings.LOAD_DEFAULT
+                    }
+                    setBackgroundColor(android.graphics.Color.BLACK)
+                    webChromeClient = WebChromeClient()
+                    webViewClient = WebViewClient()
 
-            drawLine(
-                color = platformAccent.copy(alpha = 0.6f),
-                start = Offset(0f, horizonY),
-                end = Offset(w, horizonY),
-                strokeWidth = 2.dp.toPx()
-            )
+                    val html = EmulatorJsEngine.generateHtml(game, romPath)
+                    loadDataWithBaseURL(
+                        "https://cdn.emulatorjs.org/",
+                        html,
+                        "text/html",
+                        "UTF-8",
+                        null
+                    )
+                }
+            },
+            modifier = Modifier.fillMaxSize()
+        )
 
-            val verticalLines = 14
-            for (i in -verticalLines..verticalLines) {
-                val topX = w * 0.5f + (i * w * 0.025f) - (joystickX * w * 0.04f)
-                val bottomX = w * 0.5f + (i * w * 0.11f) - (joystickX * w * 0.12f)
-                drawLine(
-                    color = platformAccent.copy(alpha = 0.18f),
-                    start = Offset(topX, horizonY),
-                    end = Offset(bottomX, h),
-                    strokeWidth = 1.2.dp.toPx()
-                )
-            }
-
-            val horizontalSteps = 8
-            for (step in 0 until horizontalSteps) {
-                val norm = ((step + gridScrollPhase) / horizontalSteps.toFloat()).coerceIn(0f, 1f)
-                val yPos = horizonY + (h - horizonY) * (norm * norm)
-                drawLine(
-                    color = platformAccent.copy(alpha = 0.24f * norm),
-                    start = Offset(0f, yPos),
-                    end = Offset(w, yPos),
-                    strokeWidth = 1.5.dp.toPx()
-                )
-            }
-
-            val playerCenter = Offset(w * playerNormX, h * playerNormY)
-
-            pulseEffects.forEach { pulse ->
-                val center = Offset(w * pulse.xNorm, h * pulse.yNorm)
-                drawCircle(
-                    color = pulse.color.copy(alpha = (1f - pulse.radiusProgress) * 0.78f),
-                    radius = (28.dp.toPx()) + (130.dp.toPx() * pulse.radiusProgress),
-                    center = center,
-                    style = Stroke(width = 3.dp.toPx())
-                )
-            }
-
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(
-                        platformAccent.copy(alpha = 0.5f),
-                        Color.Transparent
-                    ),
-                    center = playerCenter,
-                    radius = 58.dp.toPx()
-                ),
-                radius = 58.dp.toPx(),
-                center = playerCenter
-            )
-
-            drawCircle(
-                color = NexusPalette.DeepDarkBlack,
-                radius = 22.dp.toPx(),
-                center = playerCenter
-            )
-
-            drawCircle(
-                color = platformAccent,
-                radius = 22.dp.toPx(),
-                center = playerCenter,
-                style = Stroke(width = 3.dp.toPx())
-            )
-
-            if (joystickX != 0f || joystickY != 0f) {
-                drawLine(
-                    color = Color.White,
-                    start = playerCenter,
-                    end = Offset(
-                        playerCenter.x + joystickX * 42.dp.toPx(),
-                        playerCenter.y + joystickY * 42.dp.toPx()
-                    ),
-                    strokeWidth = 3.dp.toPx()
-                )
-            }
-        }
-
-        // 2. Panel Telemetry HUD: Real Embedded Core vs Orchestrator Handoff
-        Surface(
+        // 2. Floating Minimal HUD Overlay Bar (Dapat di-toggle oleh pengguna)
+        AnimatedVisibility(
+            visible = isHudVisible,
+            enter = fadeIn(),
+            exit = fadeOut(),
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .padding(top = 68.dp),
-            shape = RoundedCornerShape(14.dp),
-            color = NexusPalette.ElevatedBackground.copy(alpha = 0.88f),
-            border = BorderStroke(1.dp, NexusPalette.CardBorder)
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 10.dp)
         ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            Surface(
+                shape = RoundedCornerShape(24.dp),
+                color = Color(0xCC090A0F),
+                border = BorderStroke(1.dp, Color(0x33FFFFFF)),
+                shadowElevation = 6.dp
             ) {
                 Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text(
-                        text = "${game.title} (${game.platform.displayName})",
-                        style = MaterialTheme.typography.labelLarge.copy(
-                            fontWeight = FontWeight.ExtraBold
-                        ),
-                        color = Color.White
-                    )
+                    // Tombol Keluar Cepat
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Surface(
+                            shape = CircleShape,
+                            color = Color(0x22FFFFFF),
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            IconButton(
+                                onClick = { showExitDialog = true },
+                                modifier = Modifier.fillMaxSize()
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Exit Game",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
 
-                    Surface(
-                        shape = RoundedCornerShape(6.dp),
-                        color = if (game.executionMode == EngineExecutionMode.IN_APP_PLAYABLE)
-                            Color(0xFF22C55E).copy(alpha = 0.18f)
-                        else
-                            NexusPalette.PrimaryViolet.copy(alpha = 0.18f),
-                        border = BorderStroke(
-                            1.dp,
-                            if (game.executionMode == EngineExecutionMode.IN_APP_PLAYABLE) Color(0xFF22C55E) else NexusPalette.PrimaryViolet
-                        )
-                    ) {
-                        Text(
-                            text = game.executionMode.label,
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = FontWeight.ExtraBold
-                            ),
-                            color = if (game.executionMode == EngineExecutionMode.IN_APP_PLAYABLE) Color(0xFF22C55E) else NexusPalette.SecondaryPurple,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+
+                        Column {
+                            Text(
+                                text = game.title,
+                                style = MaterialTheme.typography.titleSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp
+                                ),
+                                color = Color.White,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Surface(
+                                    shape = RoundedCornerShape(4.dp),
+                                    color = platformAccent.copy(alpha = 0.25f)
+                                ) {
+                                    Text(
+                                        text = game.platform.displayName.uppercase(Locale.ROOT),
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            fontWeight = FontWeight.ExtraBold,
+                                            fontSize = 9.sp
+                                        ),
+                                        color = platformAccent,
+                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "WASM Core: ${EmulatorJsEngine.resolveCore(game.platform, romPath).uppercase(Locale.ROOT)}",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Medium
+                                    ),
+                                    color = Color(0xFF94A3B8)
+                                )
+                            }
+                        }
                     }
 
-                    Text(
-                        text = "• ${coreTelemetry.currentFps} FPS",
-                        style = MaterialTheme.typography.labelMedium.copy(
-                            fontWeight = FontWeight.ExtraBold
-                        ),
-                        color = Color(0xFF22C55E)
-                    )
+                    // Aksi Handoff ke Emulator Luar & Sembunyikan HUD
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Button(
+                            onClick = onLaunchExternalEmulator,
+                            shape = RoundedCornerShape(14.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0x22FFFFFF),
+                                contentColor = Color.White
+                            ),
+                            border = BorderStroke(1.dp, Color(0x44FFFFFF)),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                                horizontal = 10.dp,
+                                vertical = 4.dp
+                            )
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.PlayArrow,
+                                contentDescription = null,
+                                tint = platformAccent,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "Buka di Engine",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 11.sp
+                                )
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        TextButton(
+                            onClick = { isHudVisible = false },
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 6.dp)
+                        ) {
+                            Text(
+                                text = "Sembunyikan",
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                                color = Color(0xFF94A3B8)
+                            )
+                        }
+                    }
                 }
-
-                Spacer(modifier = Modifier.height(2.dp))
-
-                val formattedX = String.format(Locale.US, "%+.2f", joystickX)
-                val formattedY = String.format(Locale.US, "%+.2f", joystickY)
-                val activeBtns = if (pressedButtons.isEmpty()) {
-                    "Idle"
-                } else {
-                    pressedButtons.joinToString(", ") { it.label }
-                }
-
-                Text(
-                    text = "${coreTelemetry.coreName} | Stick X:$formattedX Y:$formattedY | Input: $activeBtns",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = NexusPalette.SecondaryPurple
-                )
             }
         }
 
-        // 3. Foreground: Virtual Touch Controller Overlay
-        VirtualGamepad(
-            onJoystickMove = { x, y ->
-                joystickX = x
-                joystickY = y
-                // Salurkan input langsung ke runner buffer
-                embeddedRunner.sendInput(
-                    VirtualInputState(
-                        analogX = x,
-                        analogY = y,
-                        buttonA = pressedButtons.contains(VirtualGamepadButton.A),
-                        buttonB = pressedButtons.contains(VirtualGamepadButton.B),
-                        buttonX = pressedButtons.contains(VirtualGamepadButton.X),
-                        buttonY = pressedButtons.contains(VirtualGamepadButton.Y),
-                        buttonL1 = pressedButtons.contains(VirtualGamepadButton.L1),
-                        buttonR1 = pressedButtons.contains(VirtualGamepadButton.R1)
-                    )
-                )
-            },
-            onButtonPress = { button, isPressed ->
-                if (isPressed) {
-                    if (!pressedButtons.contains(button)) {
-                        pressedButtons.add(button)
-                    }
-                    pulseEffects.add(
-                        ActionPulseEffect(
-                            xNorm = playerNormX,
-                            yNorm = playerNormY,
-                            color = button.accentColor,
-                            radiusProgress = 0f
-                        )
-                    )
-                } else {
-                    pressedButtons.remove(button)
-                }
-
-                // Update input buffer ke embedded core runner
-                embeddedRunner.sendInput(
-                    VirtualInputState(
-                        analogX = joystickX,
-                        analogY = joystickY,
-                        buttonA = pressedButtons.contains(VirtualGamepadButton.A),
-                        buttonB = pressedButtons.contains(VirtualGamepadButton.B),
-                        buttonX = pressedButtons.contains(VirtualGamepadButton.X),
-                        buttonY = pressedButtons.contains(VirtualGamepadButton.Y),
-                        buttonL1 = pressedButtons.contains(VirtualGamepadButton.L1),
-                        buttonR1 = pressedButtons.contains(VirtualGamepadButton.R1)
-                    )
-                )
-            },
-            onPauseMenuClick = {
-                embeddedRunner.pause()
-                showExitDialog = true
-            },
-            overlayOpacity = 0.50f
-        )
-    }
-
-    // 4. Dialog Konfirmasi Keluar & Save State
-    if (showExitDialog) {
-        AlertDialog(
-            onDismissRequest = {
-                embeddedRunner.resume()
-                showExitDialog = false
-            },
-            containerColor = NexusPalette.SurfaceCard,
-            titleContentColor = Color.White,
-            textContentColor = NexusPalette.TextSecondary,
-            title = {
-                Text(
-                    text = "Pause Session — ${game.title}",
-                    style = MaterialTheme.typography.titleLarge.copy(
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                )
-            },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(
-                        text = "Keluar dari game dan simpan state?",
-                        color = Color.White
-                    )
-                    Text(
-                        text = "Mode: ${game.executionMode.label}\nROM: $romPath\nCore: ${coreTelemetry.coreName}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = NexusPalette.TextSecondary
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        val stateBytes = embeddedRunner.saveState()
-                        showExitDialog = false
-                        Toast.makeText(
-                            context,
-                            "State '${game.title}' disimpan (${stateBytes.size} bytes).",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                        onExitToDashboard()
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = NexusPalette.PrimaryViolet,
-                        contentColor = Color.White
-                    )
+        // Tombol Mikro untuk Memunculkan Kembali HUD jika Disembunyikan
+        if (!isHudVisible) {
+            Surface(
+                shape = CircleShape,
+                color = Color(0x66000000),
+                border = BorderStroke(1.dp, Color(0x33FFFFFF)),
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(12.dp)
+                    .size(30.dp)
+            ) {
+                IconButton(
+                    onClick = { isHudVisible = true },
+                    modifier = Modifier.fillMaxSize()
                 ) {
-                    Text(
-                        text = "Simpan & Keluar",
-                        fontWeight = FontWeight.Bold
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Show Menu",
+                        tint = Color.White.copy(alpha = 0.7f),
+                        modifier = Modifier.size(16.dp)
                     )
-                }
-            },
-            dismissButton = {
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    TextButton(
-                        onClick = {
-                            showExitDialog = false
-                            onLaunchExternalEmulator()
-                        }
-                    ) {
-                        Text(
-                            text = "Buka ${game.targetEmulator.displayName}",
-                            color = NexusPalette.SecondaryPurple
-                        )
-                    }
-                    TextButton(
-                        onClick = {
-                            embeddedRunner.resume()
-                            showExitDialog = false
-                        }
-                    ) {
-                        Text(
-                            text = "Lanjut Main",
-                            color = Color.White
-                        )
-                    }
                 }
             }
-        )
+        }
+
+        // 3. Exit Confirmation Dialog
+        if (showExitDialog) {
+            AlertDialog(
+                onDismissRequest = { showExitDialog = false },
+                containerColor = NexusPalette.SurfaceDark,
+                title = {
+                    Text(
+                        text = "Keluar dari Game?",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                text = {
+                    Text(
+                        text = "Progress game saat ini akan dihentikan. Anda dapat melanjutkan kembali kapan saja dari Dashboard.",
+                        color = Color(0xFFCCCCCC)
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            showExitDialog = false
+                            onExitToDashboard()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = NexusPalette.NeonRed)
+                    ) {
+                        Text("Keluar", color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showExitDialog = false }) {
+                        Text("Lanjutkan Main", color = Color.White)
+                    }
+                }
+            )
+        }
     }
 }

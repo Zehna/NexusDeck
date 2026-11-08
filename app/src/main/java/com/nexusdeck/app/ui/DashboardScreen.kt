@@ -174,7 +174,18 @@ fun DashboardScreen(
         val isInstalled = EngineManager.isEngineInstalled(context, engine)
         val optimalConfig = AutoTuningEngine.generateOptimalConfig(spec = hardwareSpec, game = game)
 
-        if (isInstalled) {
+        if (game.executionMode == EngineExecutionMode.IN_APP_PLAYABLE) {
+            // Untuk game GBA, SNES, NES, PSP dll.: Langsung putar di Real Embedded Player EmulatorJS
+            selectedGameForSheet = null
+            pendingAutoPlayGame = null
+            activeGameSession = ActiveGameSession(
+                game = game,
+                romPath = romPath,
+                engineConfig = optimalConfig,
+                autoTuneActive = true
+            )
+            Toast.makeText(context, "Memutar ${game.title} di NexusDeck Embedded Core...", Toast.LENGTH_SHORT).show()
+        } else if (isInstalled) {
             val result = GameLauncher.launchGame(
                 context = context,
                 game = game,
