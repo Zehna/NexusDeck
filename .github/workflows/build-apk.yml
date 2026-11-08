@@ -30,27 +30,13 @@ jobs:
 
       - name: Run Unit Tests
         run: |
-          if ! ./gradlew testDebugUnitTest --info; then
-            python3 -c "
-          import glob, xml.etree.ElementTree as ET
-          for xml_file in glob.glob('**/test-results/**/*.xml', recursive=True):
-              tree = ET.parse(xml_file)
-              for tc in tree.findall('.//testcase'):
-                  fail = tc.find('failure')
-                  if fail is not None:
-                      msg = fail.get('message', '')
-                      text = (fail.text or '').strip().split('\n')[0]
-                      print(f'::error file={tc.get(\"classname\")}.kt,title={tc.get(\"name\")}::{msg} | {text}')
-          "
+          ./gradlew testDebugUnitTest --stacktrace 2>&1 | tee build_log.txt || {
+            echo "::error::Gradle command failed"
+            grep -E "(e: |error:|FAILED)" build_log.txt | head -n 40 | while IFS= read -r line; do
+              echo "::error::$line"
+            done
             exit 1
-          fi
-
-      - name: Upload Test Results on Failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: unit-test-results
-          path: app/build/reports/tests/testDebugUnitTest/
+          }
 
       - name: Build Debug APK with Gradle
         run: ./gradlew assembleDebug --stacktrace
