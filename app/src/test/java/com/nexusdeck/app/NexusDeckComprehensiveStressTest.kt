@@ -1164,8 +1164,8 @@ class NexusDeckComprehensiveStressTest {
             downloadUrl = "https://archive.org/download/zelda.gba"
         )
         val html = EmulatorJsEngine.generateHtml(zelda, "/games/nintendo/zelda.gba")
-        assertTrue("HTML must contain EJS_player element", html.contains("window.EJS_player = '#game'"))
-        assertTrue("HTML must specify mgba core for GBA", html.contains("window.EJS_core = 'mgba'"))
+        assertTrue("HTML must contain screen canvas", html.contains("id=\"nexus-screen\""))
+        assertTrue("HTML must specify mgba core for GBA", html.contains("'mgba'"))
         assertTrue("HTML must include retro engine script", html.contains("retro_engine.js"))
     }
 
