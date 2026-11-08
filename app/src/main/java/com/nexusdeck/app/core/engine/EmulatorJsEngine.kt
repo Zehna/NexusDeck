@@ -33,6 +33,7 @@ object EmulatorJsEngine {
             ext in listOf("gbc", "gb") -> "gb"
             ext in listOf("nds") -> "nds"
             ext in listOf("n64", "z64") -> "n64"
+            platform == GamePlatform.PSP || ext in listOf("iso", "cso") -> "psp"
             else -> "mgba"
         }
     }

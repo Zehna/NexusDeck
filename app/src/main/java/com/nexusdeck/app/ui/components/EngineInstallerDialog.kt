@@ -49,7 +49,10 @@ fun formatFriendlyErrorMessage(rawError: String?): String {
     return when {
         rawError.contains("404") ->
             "File APK rilis belum tersedia di server (HTTP 404). Silakan unduh manual langsung dari browser."
-        rawError.contains("timeout", ignoreCase = true) || rawError.contains("koneksi", ignoreCase = true) ->
+        rawError.contains("timeout", ignoreCase = true) ||
+                rawError.contains("timed out", ignoreCase = true) ||
+                rawError.contains("koneksi", ignoreCase = true) ||
+                rawError.contains("connect", ignoreCase = true) ->
             "Koneksi internet terputus saat mengunduh APK engine. Silakan coba lagi atau gunakan browser."
         else ->
             "Gagal mengunduh APK engine ($rawError). Silakan coba lagi atau unduh manual dari browser."

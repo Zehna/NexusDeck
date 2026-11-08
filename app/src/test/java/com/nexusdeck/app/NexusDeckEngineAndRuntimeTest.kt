@@ -274,7 +274,7 @@ class NexusDeckEngineAndRuntimeTest {
         assertTrue("Error 404 harus menyarankan unduh manual dari browser", error404.contains("browser"))
 
         val errorTimeout = formatFriendlyErrorMessage("Connection timed out to github.com")
-        assertTrue("Error timeout harus menyebutkan koneksi internet", errorTimeout.contains("Koneksi"))
+        assertTrue("Error timeout harus menyebutkan koneksi internet", errorTimeout.contains("koneksi", ignoreCase = true))
 
         val genericError = formatFriendlyErrorMessage("Network unreachable")
         assertTrue(genericError.contains("Unduh Manual dari Browser") || genericError.contains("browser"))
