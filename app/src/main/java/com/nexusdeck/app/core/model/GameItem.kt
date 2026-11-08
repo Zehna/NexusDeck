@@ -56,7 +56,7 @@ data class GameItem(
 ) {
     val executionMode: EngineExecutionMode
         get() = when (platform) {
-            GamePlatform.PSP, GamePlatform.NINTENDO -> EngineExecutionMode.IN_APP_PLAYABLE
-            GamePlatform.PS2, GamePlatform.PC, GamePlatform.PS3 -> EngineExecutionMode.NATIVE_HANDOFF
+            GamePlatform.NINTENDO -> EngineExecutionMode.IN_APP_PLAYABLE
+            GamePlatform.PSP, GamePlatform.PS2, GamePlatform.PC, GamePlatform.PS3 -> EngineExecutionMode.NATIVE_HANDOFF
         }
 }

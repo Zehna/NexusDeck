@@ -16,10 +16,12 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
+import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 import java.net.HttpURLConnection
 import java.net.URI
+import java.util.Locale
 
 /**
  * Metadata model untuk emulator target engine di NexusDeck.
@@ -34,7 +36,8 @@ data class EngineInfo(
     val downloadUrl: String,
     val estimatedSizeLabel: String,
     val description: String,
-    val version: String
+    val version: String,
+    val githubRepo: String? = null
 ) {
     val allPackageNames: List<String>
         get() = listOf(primaryPackageName) + alternatePackageNames
@@ -63,6 +66,7 @@ sealed class EngineDownloadProgress {
  * Modul Pengelola Engine Otomatis (Unified In-App Engine Manager)
  * Mengelola registry emulator resmi dari GitHub Releases, pengecekan instalasi package,
  * unduhan background APK, serta instalasi 1-tap menggunakan FileProvider.
+ * Dilengkapi pencari aset dinamis menggunakan GitHub Releases API untuk mencegah error HTTP 404.
  */
 object EngineManager {
 
@@ -81,7 +85,8 @@ object EngineManager {
         downloadUrl = "https://github.com/hrydgard/ppsspp/releases/download/v1.20.4/ppsspp.apk",
         estimatedSizeLabel = "~28 MB",
         description = "Emulator PSP resmi tercepat & paling kompatibel untuk Android.",
-        version = "v1.20.4"
+        version = "v1.20.4",
+        githubRepo = "hrydgard/ppsspp"
     )
 
     val netherSx2Engine = EngineInfo(
@@ -94,7 +99,8 @@ object EngineManager {
         downloadUrl = "https://github.com/Trixarian/NetherSX2-classic/releases/download/v2.2n-3668/NetherSX2-v2.2n-3668.apk",
         estimatedSizeLabel = "~18 MB",
         description = "Build NetherSX2 Classic optimal tanpa iklan untuk PlayStation 2.",
-        version = "v2.2n-3668"
+        version = "v2.2n-3668",
+        githubRepo = "Trixarian/NetherSX2-classic"
     )
 
     val gameNativeEngine = EngineInfo(
@@ -107,7 +113,8 @@ object EngineManager {
         downloadUrl = "https://github.com/utkarshdalal/GameNative/releases/latest/download/GameNative.apk",
         estimatedSizeLabel = "~75 MB",
         description = "Engine wrapper PC Windows x86/x64 dengan Turnip driver & DXVK.",
-        version = "latest"
+        version = "latest",
+        githubRepo = "utkarshdalal/GameNative"
     )
 
     val melonDsEngine = EngineInfo(
@@ -119,7 +126,8 @@ object EngineManager {
         downloadUrl = "https://github.com/rafaelvcaetano/melonDS-android/releases/download/1.9.3/melonDS-1.9.3.apk",
         estimatedSizeLabel = "~12 MB",
         description = "Emulator open-source Nintendo DS presisi tinggi dengan JIT ARM.",
-        version = "1.9.3"
+        version = "1.9.3",
+        githubRepo = "rafaelvcaetano/melonDS-android"
     )
 
     val lime3dsEngine = EngineInfo(
@@ -131,7 +139,8 @@ object EngineManager {
         downloadUrl = "https://github.com/Lime3DS/Lime3DS/releases/latest/download/lime3ds-android.apk",
         estimatedSizeLabel = "~35 MB",
         description = "Penerus Citra terbaik untuk emulasi Nintendo 3DS di Android.",
-        version = "latest"
+        version = "latest",
+        githubRepo = "Lime3DS/Lime3DS"
     )
 
     val sudachiEngine = EngineInfo(
@@ -143,7 +152,8 @@ object EngineManager {
         downloadUrl = "https://github.com/emuplace/sudachi.emuplace.app/releases/latest/download/sudachi.apk",
         estimatedSizeLabel = "~45 MB",
         description = "Emulator Nintendo Switch performa tinggi berbasis Yuzu.",
-        version = "latest"
+        version = "latest",
+        githubRepo = "emuplace/sudachi.emuplace.app"
     )
 
     val aps3eEngine = EngineInfo(
@@ -156,7 +166,8 @@ object EngineManager {
         downloadUrl = "https://github.com/APS3e/APS3e/releases/latest/download/APS3e.apk",
         estimatedSizeLabel = "~26 MB",
         description = "Engine PlayStation 3 ultra-ringan (~26 MB) generasi baru berbasis RPCS3 & Vulkan.",
-        version = "v1.2.0"
+        version = "v1.2.0",
+        githubRepo = "APS3e/APS3e"
     )
 
     val duckStationEngine = EngineInfo(
@@ -168,7 +179,8 @@ object EngineManager {
         downloadUrl = "https://github.com/stenzek/duckstation/releases/latest/download/duckstation-android.apk",
         estimatedSizeLabel = "~16 MB",
         description = "Emulator PlayStation 1 berpresisi tinggi dengan dukungan BIOS otomatis.",
-        version = "latest"
+        version = "latest",
+        githubRepo = "stenzek/duckstation"
     )
 
     val armsx3Engine = EngineInfo(
@@ -181,7 +193,8 @@ object EngineManager {
         downloadUrl = "https://github.com/ARMSX3/ARMSX3/releases/latest/download/ARMSX3.apk",
         estimatedSizeLabel = "~65 MB",
         description = "Experimental PlayStation 3 runner core.",
-        version = "latest"
+        version = "latest",
+        githubRepo = "ARMSX3/ARMSX3"
     )
 
     val lemuroidEngine = EngineInfo(
@@ -193,7 +206,8 @@ object EngineManager {
         downloadUrl = "https://github.com/Swordfish90/Lemuroid/releases/download/1.17.0/lemuroid-app-free-dynamic-release.apk",
         estimatedSizeLabel = "~22 MB",
         description = "Emulator retro zero-setup all-in-one (GBA, GBC, NES, SNES, NDS, N64) dengan core bawaan mGBA, Snes9x, MelonDS & Mupen64 tanpa unduh core manual.",
-        version = "1.17.0"
+        version = "1.17.0",
+        githubRepo = "Swordfish90/Lemuroid"
     )
 
     /**
@@ -211,6 +225,92 @@ object EngineManager {
         armsx3Engine,
         lemuroidEngine
     )
+
+    // =========================================================================
+    // Dynamic GitHub Releases API Resolver (Anti-404 Asset Finder)
+    // =========================================================================
+
+    /**
+     * Parsing daftar assets dari JSON respons GitHub Releases:
+     * https://api.github.com/repos/{owner}/{repo}/releases/latest
+     *
+     * Mengekstrak browser_download_url dari aset pertama yang berakhiran .apk
+     * dengan prioritas arsitektur arm64 / v8a / universal / android.
+     */
+    fun parseAssetApkUrlFromReleaseJson(jsonString: String): String? {
+        return try {
+            val root = JSONObject(jsonString)
+            val assets = root.optJSONArray("assets") ?: return null
+            var bestUrl: String? = null
+            var fallbackUrl: String? = null
+
+            for (i in 0 until assets.length()) {
+                val asset = assets.optJSONObject(i) ?: continue
+                val name = asset.optString("name", "").lowercase(Locale.ROOT)
+                val downloadUrl = asset.optString("browser_download_url", "")
+
+                if (name.endsWith(".apk") && downloadUrl.isNotBlank()) {
+                    val isArm64OrUniversal = name.contains("arm64") ||
+                            name.contains("v8a") ||
+                            name.contains("universal") ||
+                            name.contains("android")
+
+                    if (isArm64OrUniversal && bestUrl == null) {
+                        bestUrl = downloadUrl
+                    }
+                    if (fallbackUrl == null) {
+                        fallbackUrl = downloadUrl
+                    }
+                }
+            }
+            bestUrl ?: fallbackUrl
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    /**
+     * Menghubungi GitHub Releases API untuk mencari URL aset APK rilis terbaru secara dinamis.
+     */
+    fun fetchLatestReleaseAssetUrl(repo: String): String? {
+        return try {
+            val apiUrl = "https://api.github.com/repos/$repo/releases/latest"
+            val conn = (URI(apiUrl).toURL().openConnection() as HttpURLConnection).apply {
+                connectTimeout = 8000
+                readTimeout = 12000
+                setRequestProperty("User-Agent", "NexusDeck/1.1.3 Handheld Engine")
+                setRequestProperty("Accept", "application/vnd.github.v3+json")
+            }
+            if (conn.responseCode == 200) {
+                val jsonText = conn.inputStream.bufferedReader().use { it.readText() }
+                conn.disconnect()
+                parseAssetApkUrlFromReleaseJson(jsonText)
+            } else {
+                conn.disconnect()
+                null
+            }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    /**
+     * Menyelesaikan URL unduhan APK engine secara dinamis:
+     * 1. Mencari aset APK terbaru via GitHub Releases API jika githubRepo tersedia.
+     * 2. Jika API mengembalikan URL valid, gunakan URL tersebut.
+     * 3. Jika API gagal (rate limit/offline), fallback ke URL rilis default.
+     */
+    fun resolveDynamicApkUrl(engineInfo: EngineInfo): String {
+        val repo = engineInfo.githubRepo
+        if (!repo.isNullOrBlank()) {
+            val dynamicUrl = fetchLatestReleaseAssetUrl(repo)
+            if (!dynamicUrl.isNullOrBlank() && dynamicUrl.startsWith("http")) {
+                Log.i(TAG, "Resolusi dinamis aset APK untuk ${engineInfo.name}: $dynamicUrl")
+                return dynamicUrl
+            }
+        }
+        return engineInfo.downloadUrl
+    }
 
     // =========================================================================
     // Lookup & Matching Queries
@@ -297,7 +397,7 @@ object EngineManager {
             val conn = (uri.toURL().openConnection() as HttpURLConnection).apply {
                 connectTimeout = 15000
                 readTimeout = 30000
-                setRequestProperty("User-Agent", "NexusDeck/1.0 EngineDownloader")
+                setRequestProperty("User-Agent", "NexusDeck/1.1.3 EngineDownloader")
                 instanceFollowRedirects = true
             }
             val code = conn.responseCode
@@ -317,13 +417,14 @@ object EngineManager {
         return (URI(urlStr).toURL().openConnection() as HttpURLConnection).apply {
             connectTimeout = 15000
             readTimeout = 30000
-            setRequestProperty("User-Agent", "NexusDeck/1.0 EngineDownloader")
+            setRequestProperty("User-Agent", "NexusDeck/1.1.3 EngineDownloader")
         }
     }
 
     /**
      * Mengunduh file APK engine resmi langsung ke direktori cache/engines NexusDeck
      * lengkap dengan update progress flow secara asinkron.
+     * Menggunakan resolusi URL dinamis via GitHub Releases API untuk mencegah HTTP 404.
      */
     fun downloadEngineApk(
         context: Context,
@@ -339,13 +440,24 @@ object EngineManager {
             apkFile.delete()
         }
 
+        val targetUrl = resolveDynamicApkUrl(engineInfo)
+
         var conn: HttpURLConnection? = null
         try {
-            conn = openConnectionWithRedirects(engineInfo.downloadUrl)
+            conn = openConnectionWithRedirects(targetUrl)
             conn.connect()
-            val code = conn.responseCode
+            var code = conn.responseCode
+
+            // Jika targetUrl dinamis mengembalikan 404 dan berbeda dari default, coba default
+            if (code == 404 && targetUrl != engineInfo.downloadUrl) {
+                conn.disconnect()
+                conn = openConnectionWithRedirects(engineInfo.downloadUrl)
+                conn.connect()
+                code = conn.responseCode
+            }
+
             if (code !in 200..299) {
-                emit(EngineDownloadProgress.Failed("Server mengembalikan kode status HTTP $code"))
+                emit(EngineDownloadProgress.Failed("Server mengembalikan kode status HTTP $code. Gunakan opsi 'Unduh Manual dari Browser'."))
                 return@flow
             }
 
@@ -383,7 +495,7 @@ object EngineManager {
         } catch (e: Exception) {
             emit(
                 EngineDownloadProgress.Failed(
-                    e.localizedMessage ?: "Gagal mengunduh APK engine ${engineInfo.name}."
+                    "Gagal mengunduh APK engine ${engineInfo.name}: ${e.localizedMessage ?: "Koneksi terputus"}. Gunakan opsi 'Unduh Manual dari Browser'."
                 )
             )
         } finally {

@@ -40,6 +40,22 @@ import kotlinx.coroutines.launch
 import java.io.File
 import java.util.Locale
 
+const val FALLBACK_BROWSER_BUTTON_LABEL = "Unduh Manual dari Browser"
+
+fun formatFriendlyErrorMessage(rawError: String?): String {
+    if (rawError.isNullOrBlank()) {
+        return "Gagal mengunduh APK engine. Periksa koneksi internet Anda atau unduh manual."
+    }
+    return when {
+        rawError.contains("404") ->
+            "File APK rilis belum tersedia di server (HTTP 404). Silakan unduh manual langsung dari browser."
+        rawError.contains("timeout", ignoreCase = true) || rawError.contains("koneksi", ignoreCase = true) ->
+            "Koneksi internet terputus saat mengunduh APK engine. Silakan coba lagi atau gunakan browser."
+        else ->
+            "Gagal mengunduh APK engine ($rawError). Silakan coba lagi atau unduh manual dari browser."
+    }
+}
+
 /**
  * Dialog Instalasi Engine Cerdas (Smart In-App Engine Installer Dialog)
  * Muncul saat engine emulator belum terpasang di HP. Menyediakan unduhan APK
@@ -140,7 +156,7 @@ fun EngineInstallerDialog(
                         downloadedApkFile != null ->
                             "Paket APK ${engineInfo.name} berhasil diunduh. Silakan konfirmasi pemasangan pada layar pop-up Android Anda."
                         errorMessage != null ->
-                            errorMessage ?: "Terjadi kesalahan saat mengunduh APK."
+                            formatFriendlyErrorMessage(errorMessage)
                         else ->
                             "Engine ${engineInfo.name} diperlukan untuk memutar game \"$gameTitle\" (Ukuran: ${engineInfo.estimatedSizeLabel}). Unduh dan pasang sekarang?"
                     },
@@ -396,13 +412,16 @@ fun EngineInstallerDialog(
                         Icon(
                             Icons.Default.OpenInBrowser,
                             contentDescription = null,
-                            tint = NexusPalette.TextMuted,
-                            modifier = Modifier.size(14.dp)
+                            tint = NexusPalette.NeonCyan,
+                            modifier = Modifier.size(16.dp)
                         )
-                        Spacer(modifier = Modifier.width(4.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "Unduh Manual dari GitHub",
-                            style = MaterialTheme.typography.labelSmall.copy(color = NexusPalette.TextMuted)
+                            text = FALLBACK_BROWSER_BUTTON_LABEL,
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                color = NexusPalette.NeonCyan,
+                                fontWeight = FontWeight.Bold
+                            )
                         )
                     }
                 }

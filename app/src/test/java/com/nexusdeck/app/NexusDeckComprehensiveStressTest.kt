@@ -643,7 +643,7 @@ class NexusDeckComprehensiveStressTest {
         val pc = GameItem("4", "PC", GamePlatform.PC, "", 6, emptyList(), TargetEmulator.GameNative)
         val ps3 = GameItem("5", "PS3", GamePlatform.PS3, "", 8, emptyList(), TargetEmulator.ARMSX3)
 
-        assertEquals(EngineExecutionMode.IN_APP_PLAYABLE, psp.executionMode)
+        assertEquals(EngineExecutionMode.NATIVE_HANDOFF, psp.executionMode)
         assertEquals(EngineExecutionMode.IN_APP_PLAYABLE, nintendo.executionMode)
         assertEquals(EngineExecutionMode.NATIVE_HANDOFF, ps2.executionMode)
         assertEquals(EngineExecutionMode.NATIVE_HANDOFF, pc.executionMode)

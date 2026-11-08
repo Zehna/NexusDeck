@@ -125,7 +125,7 @@ fun InAppGameScreen(
 
                     val html = EmulatorJsEngine.generateHtml(game, romPath)
                     loadDataWithBaseURL(
-                        "https://cdn.emulatorjs.org/",
+                        EmulatorJsEngine.OFFLINE_ASSET_BASE_URL,
                         html,
                         "text/html",
                         "UTF-8",

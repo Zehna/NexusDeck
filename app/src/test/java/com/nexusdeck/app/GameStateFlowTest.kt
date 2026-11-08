@@ -79,12 +79,13 @@ class GameStateFlowTest {
             targetEmulator = TargetEmulator.GameNative
         )
 
-        // Path A: Embedded Core for PSP & Nintendo
-        assertEquals(EngineExecutionMode.IN_APP_PLAYABLE, pspGame.executionMode)
+        // Path A: Embedded Core for Nintendo Retro
         assertEquals(EngineExecutionMode.IN_APP_PLAYABLE, nintendoGame.executionMode)
-        assertTrue(pspGame.executionMode.isEmbedded)
+        assertTrue(nintendoGame.executionMode.isEmbedded)
 
-        // Path B: Heavy Native Handoff for PS2, PS3, and PC
+        // Path B: Native Handoff for PSP (PPSSPP), PS2, PS3, and PC
+        assertEquals(EngineExecutionMode.NATIVE_HANDOFF, pspGame.executionMode)
+        assertFalse(pspGame.executionMode.isEmbedded)
         assertEquals(EngineExecutionMode.NATIVE_HANDOFF, ps2Game.executionMode)
         assertEquals(EngineExecutionMode.NATIVE_HANDOFF, pcGame.executionMode)
         assertFalse(ps2Game.executionMode.isEmbedded)
