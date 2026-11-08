@@ -49,20 +49,24 @@ data class SniffedDownload(
     companion object {
         fun cleanTitleFromFilename(fileName: String): String {
             var withoutExt = fileName
-                .replace(Regex("""(?i)\.7z\.\d+${'$'}"""), "")
-                .replace(Regex("""(?i)\.part\d+\.rar${'$'}"""), "")
-                .replace(Regex("""(?i)\.tar\.gz${'$'}"""), "")
+                .replace(Regex("""(?i)\.7z\.\d+$"""), "")
+                .replace(Regex("""(?i)\.part\d+\.rar$"""), "")
+                .replace(Regex("""(?i)\.tar\.gz$"""), "")
 
             if (withoutExt == fileName) {
                 withoutExt = fileName.substringBeforeLast(".")
             }
 
-            return withoutExt
+            var title = withoutExt
                 .replace("_", " ")
-                .replace(Regex("\\s*\\((USA|Europe|Japan|En,Fr,De,Es,It|ISO|ROM|v\\d+.*?)\\)", RegexOption.IGNORE_CASE), "")
-                .replace(Regex("\\[.*?\\]"), "")
+                .replace(Regex("""\s*\(.*?\)"""), "")
+                .replace(Regex("""\s*\[.*?\]"""), "")
                 .trim()
-                .ifEmpty { withoutExt }
+
+            title = title.replace(Regex("""(?i)\s+(?:PlayStation\s*\d+|PS[123]|PSP|PC(?:\s+Windows)?|Nintendo|GameCube|GBA|NDS|SNES)$"""), "")
+                .trim()
+
+            return title.ifEmpty { withoutExt }
         }
 
         fun defaultCoverForPlatform(platform: GamePlatform): String {
