@@ -46,7 +46,7 @@ data class CompressionAdvice(
     val formattedSavings: String
         get() {
             val gb = estimatedSavingsGb
-            val df = DecimalFormat("#,##0.1", DecimalFormatSymbols(Locale.US))
+            val df = DecimalFormat("#,##0.0", DecimalFormatSymbols(Locale.US))
             return if (gb >= 1.0) {
                 "${df.format(gb)} GB"
             } else {
@@ -213,8 +213,12 @@ object CompressionAdvisor {
         }
     }
 
-    private fun extractExtension(fileNameOrPath: String): String {
-        val clean = fileNameOrPath.substringBefore("?").substringBefore("#")
-        return clean.substringAfterLast(".", "")
+    fun extractExtension(fileNameOrPath: String): String {
+        val clean = fileNameOrPath.substringBefore("?").substringBefore("#").trim().removePrefix(".")
+        return if (clean.contains(".")) {
+            clean.substringAfterLast(".").lowercase(Locale.US)
+        } else {
+            clean.lowercase(Locale.US)
+        }
     }
 }

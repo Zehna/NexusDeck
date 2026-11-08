@@ -46,7 +46,7 @@ data class StorageSpaceInfo(
     companion object {
         fun formatBytes(bytes: Long): String {
             if (bytes <= 0) return "0 GB"
-            val df = DecimalFormat("#,##0.1", DecimalFormatSymbols(Locale.US))
+            val df = DecimalFormat("#,##0.0", DecimalFormatSymbols(Locale.US))
             val gb = bytes / (1024.0 * 1024.0 * 1024.0)
             return if (gb >= 1.0) {
                 "${df.format(gb)} GB"
