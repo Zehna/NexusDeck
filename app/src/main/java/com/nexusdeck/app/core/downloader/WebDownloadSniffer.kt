@@ -195,23 +195,25 @@ object WebDownloadSniffer {
      * Memperkirakan platform game berdasarkan nama file, URL, dan ukuran file.
      */
     fun inferPlatform(url: String, fileName: String, sizeBytes: Long = 0L): GamePlatform {
-        val combined = "$fileName $url".lowercase(Locale.US)
         val ext = fileName.substringAfterLast('.', "").lowercase(Locale.US)
-
         when (ext) {
             "cso" -> return GamePlatform.PSP
             "gba", "nds", "nes", "sfc", "smc", "n64", "z64", "rvz", "wbfs", "gcm" -> return GamePlatform.NINTENDO
             "pkg" -> return GamePlatform.PS3
         }
 
+        val normalized = "$fileName $url".lowercase(Locale.US).replace('_', ' ').replace('-', ' ')
+        val words = normalized.split(Regex("[^a-z0-9]+")).filter { it.isNotBlank() }.toSet()
+
         return when {
-            combined.contains("psp") || combined.contains("playstation portable") -> GamePlatform.PSP
-            combined.contains("ps3") || combined.contains("playstation 3") || combined.contains("rpcs3") -> GamePlatform.PS3
-            combined.contains("ps2") || combined.contains("playstation 2") || combined.contains("pcsx2") -> GamePlatform.PS2
-            combined.contains("gba") || combined.contains("nintendo") || combined.contains("game boy") ||
-                combined.contains("snes") || combined.contains("gamecube") || combined.contains("dolphin") -> GamePlatform.NINTENDO
-            combined.contains("pc") || combined.contains("windows") || combined.contains("dosbox") ||
-                combined.contains("x86") || combined.contains("win64") -> GamePlatform.PC
+            words.contains("psp") || words.contains("ppsspp") || (words.contains("playstation") && words.contains("portable")) -> GamePlatform.PSP
+            words.contains("ps3") || (words.contains("playstation") && words.contains("3")) || words.contains("rpcs3") -> GamePlatform.PS3
+            words.contains("ps2") || (words.contains("playstation") && words.contains("2")) || words.contains("pcsx2") -> GamePlatform.PS2
+            words.contains("gba") || words.contains("nds") || words.contains("nintendo") ||
+                (words.contains("game") && words.contains("boy")) || words.contains("snes") ||
+                words.contains("gamecube") || words.contains("dolphin") -> GamePlatform.NINTENDO
+            words.contains("pc") || words.contains("windows") || words.contains("dosbox") ||
+                words.contains("x86") || words.contains("win64") || words.contains("win32") -> GamePlatform.PC
             sizeBytes > 8_000_000_000L -> GamePlatform.PS3
             sizeBytes > 1_600_000_000L -> GamePlatform.PS2
             sizeBytes in 1..80_000_000L -> GamePlatform.NINTENDO
