@@ -698,6 +698,15 @@ class NexusDeckComprehensiveStressTest {
         val engines = EngineManager.registeredEngines
         assertTrue("Registry must contain at least 6 official engines", engines.size >= 6)
 
+        // PS1: DuckStation
+        val duckStation = EngineManager.duckStationEngine
+        assertEquals("duckstation", duckStation.id)
+        assertEquals("DuckStation", duckStation.name)
+        assertEquals(GamePlatform.PS1, duckStation.platform)
+        assertEquals(TargetEmulator.DuckStation, duckStation.targetEmulator)
+        assertEquals("com.github.stenzek.duckstation", duckStation.primaryPackageName)
+        assertTrue(duckStation.alternatePackageNames.contains("org.duckstation.android"))
+
         // PSP: PPSSPP
         val ppsspp = EngineManager.ppssppEngine
         assertEquals("ppsspp", ppsspp.id)
@@ -836,6 +845,9 @@ class NexusDeckComprehensiveStressTest {
 
     @Test
     fun test35_platformBadgeColors_matchesConsoleBrandingIdentities() {
+        // PS1: Slate Silver Gray (#94A3B8)
+        assertEquals(Color(0xFF94A3B8), platformBadgeColor(GamePlatform.PS1))
+
         // PSP: Cyan Neon (#06B6D4)
         assertEquals(Color(0xFF06B6D4), platformBadgeColor(GamePlatform.PSP))
 
@@ -1200,6 +1212,14 @@ class NexusDeckComprehensiveStressTest {
 
     @Test
     fun test51_platformExecutionMatrix_completePoliciesAcrossAllConsoles() {
+        // 0. PS1: Native Engine DuckStation, WAJIB BIOS
+        val ps1 = PlatformExecutionMatrix.getRule(GamePlatform.PS1)
+        assertEquals(ExecutionType.NATIVE_ENGINE_REQUIRES_BIOS, ps1.executionType)
+        assertTrue(ps1.requiresBios)
+        assertFalse(ps1.requiresFirmware)
+        assertEquals("duckstation", ps1.defaultEngineId)
+        assertTrue(ps1.requiredFileLabel?.contains("scph1001") == true)
+
         // 1. Nintendo Retro: 100% In-App WASM Player, No BIOS, No Firmware
         val nintendo = PlatformExecutionMatrix.getRule(GamePlatform.NINTENDO)
         assertEquals(ExecutionType.IN_APP_WASM, nintendo.executionType)
@@ -1240,16 +1260,20 @@ class NexusDeckComprehensiveStressTest {
     fun test52_biosManager_officialRegistryAndAssetTargetPaths() {
         val ps1 = BiosManager.ps1Bios
         assertEquals("scph1001.bin", ps1.fileName)
+        assertEquals(GamePlatform.PS1, ps1.platform)
         assertTrue(ps1.downloadUrl.contains("archive.org"))
 
         val ps2 = BiosManager.ps2Bios
         assertEquals("scph39001.bin", ps2.fileName)
+        assertEquals(GamePlatform.PS2, ps2.platform)
         assertTrue(ps2.downloadUrl.contains("archive.org"))
 
         val ps3 = BiosManager.ps3Firmware
         assertEquals("PS3UPDAT.PUP", ps3.fileName)
+        assertEquals(GamePlatform.PS3, ps3.platform)
         assertTrue(ps3.downloadUrl.contains("dus01.ps3.update.playstation.net"))
 
+        assertEquals("scph1001.bin", BiosManager.getRequiredEntryForPlatform(GamePlatform.PS1)?.fileName)
         assertEquals("scph39001.bin", BiosManager.getRequiredEntryForPlatform(GamePlatform.PS2)?.fileName)
         assertEquals("PS3UPDAT.PUP", BiosManager.getRequiredEntryForPlatform(GamePlatform.PS3)?.fileName)
         assertNull(BiosManager.getRequiredEntryForPlatform(GamePlatform.PSP))
@@ -1263,11 +1287,84 @@ class NexusDeckComprehensiveStressTest {
         assertEquals("aps3e", aps3e.id)
         assertEquals(GamePlatform.PS3, aps3e.platform)
         assertEquals(TargetEmulator.ARMSX3, aps3e.targetEmulator)
-        assertEquals("org.aps3e", aps3e.primaryPackageName)
+        assertEquals("com.tinyproot.aps3e", aps3e.primaryPackageName)
         assertEquals("~26 MB", aps3e.estimatedSizeLabel)
-        assertTrue(aps3e.alternatePackageNames.contains("com.armsx3.play"))
+        assertTrue(aps3e.allPackageNames.contains("com.armsx3.play"))
+        assertTrue(aps3e.allPackageNames.contains("org.aps3e"))
 
         val resolved = EngineManager.getEngineForPlatform(GamePlatform.PS3)
         assertEquals("aps3e", resolved.id)
+    }
+
+    @Test
+    fun test54_nexusStorageManager_universalSharedPublicPathsAcrossAllPlatforms() {
+        // Folder publik bersama universal untuk seluruh platform
+        assertEquals("/storage/emulated/0/NexusDeck/games/ps1/", NexusStorageManager.getCanonicalPlatformGamesPath(GamePlatform.PS1))
+        assertEquals("/storage/emulated/0/NexusDeck/games/psp/", NexusStorageManager.getCanonicalPlatformGamesPath(GamePlatform.PSP))
+        assertEquals("/storage/emulated/0/NexusDeck/games/ps2/", NexusStorageManager.getCanonicalPlatformGamesPath(GamePlatform.PS2))
+        assertEquals("/storage/emulated/0/NexusDeck/games/ps3/", NexusStorageManager.getCanonicalPlatformGamesPath(GamePlatform.PS3))
+        assertEquals("/storage/emulated/0/NexusDeck/games/pc/", NexusStorageManager.getCanonicalPlatformGamesPath(GamePlatform.PC))
+        assertEquals("/storage/emulated/0/NexusDeck/games/nintendo/", NexusStorageManager.getCanonicalPlatformGamesPath(GamePlatform.NINTENDO))
+
+        // Direktori BIOS & Firmware bersama
+        assertEquals("/storage/emulated/0/NexusDeck/bios/scph1001.bin", NexusStorageManager.getCanonicalBiosPath("scph1001.bin"))
+        assertEquals("/storage/emulated/0/NexusDeck/bios/scph39001.bin", NexusStorageManager.getCanonicalBiosPath("scph39001.bin"))
+        assertEquals("/storage/emulated/0/NexusDeck/firmware/PS3UPDAT.PUP", NexusStorageManager.getCanonicalFirmwarePath("PS3UPDAT.PUP"))
+    }
+
+    @Test
+    fun test55_engineManager_directBootTargetsAcrossAllSixPlatforms() {
+        // 1. PS1 (DuckStation)
+        val ps1Engine = EngineManager.getEngineForPlatform(GamePlatform.PS1)
+        assertEquals("duckstation", ps1Engine.id)
+        assertEquals("com.github.stenzek.duckstation", ps1Engine.primaryPackageName)
+
+        // 2. PSP (PPSSPP)
+        val pspEngine = EngineManager.getEngineForPlatform(GamePlatform.PSP)
+        assertEquals("ppsspp", pspEngine.id)
+        assertEquals("org.ppsspp.ppsspp", pspEngine.primaryPackageName)
+
+        // 3. PS2 (NetherSX2)
+        val ps2Engine = EngineManager.getEngineForPlatform(GamePlatform.PS2)
+        assertEquals("nethersx2", ps2Engine.id)
+        assertEquals("xyz.aethersx2.android", ps2Engine.primaryPackageName)
+        assertTrue(ps2Engine.alternatePackageNames.contains("come.nanodata.armsx2"))
+
+        // 4. PS3 (APS3e)
+        val ps3Engine = EngineManager.getEngineForPlatform(GamePlatform.PS3)
+        assertEquals("aps3e", ps3Engine.id)
+        assertEquals("com.tinyproot.aps3e", ps3Engine.primaryPackageName)
+        assertTrue(ps3Engine.alternatePackageNames.contains("com.armsx3.play"))
+
+        // 5. PC (GameNative)
+        val pcEngine = EngineManager.getEngineForPlatform(GamePlatform.PC)
+        assertEquals("gamenative", pcEngine.id)
+        assertEquals("app.gamenative", pcEngine.primaryPackageName)
+
+        // 6. Nintendo (Lemuroid / Offline In-App)
+        val nintendoEngine = EngineManager.getEngineForPlatform(GamePlatform.NINTENDO)
+        assertEquals("lemuroid", nintendoEngine.id)
+        assertTrue(PlatformExecutionMatrix.getRule(GamePlatform.NINTENDO).isEmbeddedWasm)
+    }
+
+    @Test
+    fun test56_allInOneBundleSetup_automaticBiosAndDirectBootingPipeline() {
+        // Verifikasi bahwa PS1, PS2, PS3 otomatis memiliki metadata BIOS/Firmware
+        val ps1Bios = BiosManager.getRequiredEntryForPlatform(GamePlatform.PS1)
+        assertNotNull(ps1Bios)
+        assertEquals("scph1001.bin", ps1Bios?.fileName)
+
+        val ps2Bios = BiosManager.getRequiredEntryForPlatform(GamePlatform.PS2)
+        assertNotNull(ps2Bios)
+        assertEquals("scph39001.bin", ps2Bios?.fileName)
+
+        val ps3Fw = BiosManager.getRequiredEntryForPlatform(GamePlatform.PS3)
+        assertNotNull(ps3Fw)
+        assertEquals("PS3UPDAT.PUP", ps3Fw?.fileName)
+
+        // Verifikasi bahwa PSP, PC, Nintendo Retro melewati unduhan BIOS secara instan
+        assertNull(BiosManager.getRequiredEntryForPlatform(GamePlatform.PSP))
+        assertNull(BiosManager.getRequiredEntryForPlatform(GamePlatform.PC))
+        assertNull(BiosManager.getRequiredEntryForPlatform(GamePlatform.NINTENDO))
     }
 }

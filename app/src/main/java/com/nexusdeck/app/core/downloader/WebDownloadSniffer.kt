@@ -36,6 +36,7 @@ data class SniffedDownload(
             platform = platform,
             coverUrl = defaultCoverForPlatform(platform),
             minRamGb = when (platform) {
+                GamePlatform.PS1 -> 2
                 GamePlatform.NINTENDO -> 2
                 GamePlatform.PSP -> 3
                 GamePlatform.PS2 -> 4
@@ -261,6 +262,7 @@ object WebDownloadSniffer {
         val words = normalized.split(Regex("[^a-z0-9]+")).filter { it.isNotBlank() }.toSet()
 
         return when {
+            words.contains("ps1") || words.contains("psx") || words.contains("duckstation") -> GamePlatform.PS1
             words.contains("psp") || words.contains("ppsspp") || (words.contains("playstation") && words.contains("portable")) -> GamePlatform.PSP
             words.contains("ps3") || (words.contains("playstation") && words.contains("3")) || words.contains("rpcs3") -> GamePlatform.PS3
             words.contains("ps2") || (words.contains("playstation") && words.contains("2")) || words.contains("pcsx2") -> GamePlatform.PS2
@@ -282,6 +284,7 @@ object WebDownloadSniffer {
     fun formatFileSize(bytes: Long, platform: GamePlatform): String {
         if (bytes <= 0L) {
             return when (platform) {
+                GamePlatform.PS1 -> "~450 MB"
                 GamePlatform.NINTENDO -> "~32 MB"
                 GamePlatform.PSP -> "~850 MB"
                 GamePlatform.PS2 -> "~2.40 GB"
@@ -316,6 +319,7 @@ object WebDownloadSniffer {
         val fileName = extractFileName(url, contentDisposition)
         val platform = inferPlatform(url, fileName, contentLength)
         val targetEmulator = when (platform) {
+            GamePlatform.PS1 -> TargetEmulator.DuckStation
             GamePlatform.NINTENDO -> TargetEmulator.Lemuroid
             GamePlatform.PSP -> TargetEmulator.PPSSPP
             GamePlatform.PS2 -> TargetEmulator.ARMSX2

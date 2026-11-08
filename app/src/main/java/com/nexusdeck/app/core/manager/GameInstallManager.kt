@@ -142,8 +142,9 @@ class GameInstallManager(
     }
 
     /**
-     * Mengunduh game langsung ke folder /games/[platform]/ dan menyimpannya secara permanen
-     * ke Library / Downloads agar siap dimainkan kapan saja.
+     * Mengunduh game langsung ke folder publik bersama /NexusDeck/games/[platform]/,
+     * otomatis mengunduh BIOS / Firmware resmi jika platform memerlukannya (PS1, PS2, PS3),
+     * memvalidasi biner ROM, serta memicu Auto-Play Pipeline untuk direct gameplay boot.
      */
     fun installGame(game: GameItem) {
         val currentState = getStateForGame(game.id)
@@ -158,21 +159,30 @@ class GameInstallManager(
 
         activeInstallJobs[game.id]?.cancel()
         activeInstallJobs[game.id] = coroutineScope.launch(Dispatchers.Main) {
-            // Alur unduhan progresif ke /games/[platform]/
+            // 1. Alur unduhan game ke folder publik /NexusDeck/games/[platform]/
             val totalSteps = 28
             for (step in 1..totalSteps) {
-                val progress = step.toFloat() / totalSteps.toFloat()
+                val progress = (step.toFloat() / totalSteps.toFloat()) * 0.85f
                 updateGameState(game.id, GameState.Downloading(progress = progress))
-                delay(75L)
+                delay(40L)
             }
 
-            // Ekstraksi & verifikasi kontainer ROM di /games/[platform]/
+            // 2. Unduh BIOS / Firmware Otomatis sesuai kebutuhan konsol
+            val requiredBios = com.nexusdeck.app.core.bios.BiosManager.getRequiredEntryForPlatform(game.platform)
+            if (requiredBios != null && !com.nexusdeck.app.core.bios.BiosManager.isBiosOrFirmwareReady(appContext, game.platform)) {
+                updateGameState(game.id, GameState.Downloading(progress = 0.90f))
+                com.nexusdeck.app.core.bios.BiosManager.ensureBiosReady(appContext, game.platform)
+            }
+
+            // 3. Ekstraksi & verifikasi kontainer ROM di /NexusDeck/games/[platform]/
             updateGameState(game.id, GameState.Extracting)
-            delay(1400L)
+            delay(800L)
 
             val finalRomPath = realDownloader.writeVerifiedLocalGameFile(game)
             persistInstalledPath(game.id, finalRomPath)
             updateGameState(game.id, GameState.Installed(romPath = finalRomPath))
+
+            // 4. Auto-Play Pipeline Trigger: otomatis luncurkan / boot game
             _autoPlayTrigger.value = AutoPlayEvent(game = game, romPath = finalRomPath)
             activeInstallJobs.remove(game.id)
         }

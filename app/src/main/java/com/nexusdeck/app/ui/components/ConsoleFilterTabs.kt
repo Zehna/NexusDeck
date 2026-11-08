@@ -35,6 +35,7 @@ enum class CategoryPillFilter(
     ALL("All", null, false, false),
     FAVORITES("Favorit ⭐", null, true, false),
     CATALOG("Catalog", null, false, true),
+    PS1("PlayStation 1", GamePlatform.PS1, false, false),
     PSP("PSP", GamePlatform.PSP, false, false),
     NINTENDO("Nintendo", GamePlatform.NINTENDO, false, false),
     PS2("PlayStation 2", GamePlatform.PS2, false, false),

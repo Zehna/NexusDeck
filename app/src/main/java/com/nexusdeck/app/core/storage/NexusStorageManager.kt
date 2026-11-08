@@ -307,15 +307,109 @@ object NexusStorageManager {
         return info.freeBytes >= requiredBytes
     }
 
+    const val PUBLIC_BASE_PATH = "/storage/emulated/0/NexusDeck"
+
     /**
-     * Mengembalikan direktori penyimpanan lokal /games/[platform]/ milik aplikasi NexusDeck.
+     * Mengembalikan direktori root bersama NexusDeck (/storage/emulated/0/NexusDeck/).
+     * Dapat diakses secara langsung oleh seluruh engine emulator target (DuckStation, PPSSPP,
+     * NetherSX2, APS3e, GameNative) tanpa terhalang isolasi Android Scoped Storage.
      */
-    fun getPlatformGamesDir(context: Context, platform: GamePlatform): File {
-        val baseDir = context.getExternalFilesDir(null) ?: context.filesDir
-        val dir = File(baseDir, "games/${platform.name.lowercase(Locale.US)}")
+    fun getPublicNexusDeckDir(context: Context? = null): File {
+        return try {
+            val externalRoot = Environment.getExternalStorageDirectory()
+            if (externalRoot != null && (externalRoot.exists() || externalRoot.canWrite())) {
+                val dir = File(externalRoot, "NexusDeck")
+                if (!dir.exists()) dir.mkdirs()
+                dir
+            } else if (context != null) {
+                val appExt = context.getExternalFilesDir(null) ?: context.filesDir
+                val dir = File(appExt, "NexusDeck")
+                if (!dir.exists()) dir.mkdirs()
+                dir
+            } else {
+                val fallback = File(PUBLIC_BASE_PATH)
+                if (!fallback.exists()) fallback.mkdirs()
+                fallback
+            }
+        } catch (_: Throwable) {
+            val fallback = if (context != null) {
+                File(context.getExternalFilesDir(null) ?: context.filesDir, "NexusDeck")
+            } else {
+                File(System.getProperty("java.io.tmpdir"), "NexusDeck")
+            }
+            if (!fallback.exists()) fallback.mkdirs()
+            fallback
+        }
+    }
+
+    /**
+     * Mengembalikan direktori penyimpanan publik bersama per platform:
+     * - PS1: /storage/emulated/0/NexusDeck/games/ps1/
+     * - PSP: /storage/emulated/0/NexusDeck/games/psp/
+     * - PS2: /storage/emulated/0/NexusDeck/games/ps2/
+     * - PS3: /storage/emulated/0/NexusDeck/games/ps3/
+     * - PC: /storage/emulated/0/NexusDeck/games/pc/
+     * - Nintendo: /storage/emulated/0/NexusDeck/games/nintendo/
+     */
+    fun getPlatformGamesDir(context: Context? = null, platform: GamePlatform): File {
+        val root = getPublicNexusDeckDir(context)
+        val dir = File(root, "games/${platform.name.lowercase(Locale.US)}")
         if (!dir.exists()) {
             dir.mkdirs()
         }
         return dir
+    }
+
+    fun getPlatformGamesDir(context: Context, platform: GamePlatform): File {
+        return getPlatformGamesDir(context as Context?, platform)
+    }
+
+    /**
+     * Mengembalikan direktori BIOS bersama (/storage/emulated/0/NexusDeck/bios/).
+     * Berisi berkas BIOS resmi seperti scph1001.bin (PS1) dan scph39001.bin (PS2).
+     */
+    fun getBiosDir(context: Context? = null): File {
+        val root = getPublicNexusDeckDir(context)
+        val dir = File(root, "bios")
+        if (!dir.exists()) {
+            dir.mkdirs()
+        }
+        return dir
+    }
+
+    fun getBiosDir(context: Context): File {
+        return getBiosDir(context as Context?)
+    }
+
+    /**
+     * Mengembalikan direktori Firmware bersama (/storage/emulated/0/NexusDeck/firmware/).
+     * Berisi berkas Firmware resmi seperti PS3UPDAT.PUP (Sony PS3).
+     */
+    fun getFirmwareDir(context: Context? = null): File {
+        val root = getPublicNexusDeckDir(context)
+        val dir = File(root, "firmware")
+        if (!dir.exists()) {
+            dir.mkdirs()
+        }
+        return dir
+    }
+
+    fun getFirmwareDir(context: Context): File {
+        return getFirmwareDir(context as Context?)
+    }
+
+    /**
+     * String path kanonikal untuk verifikasi & integrasi antar modul:
+     */
+    fun getCanonicalPlatformGamesPath(platform: GamePlatform): String {
+        return "$PUBLIC_BASE_PATH/games/${platform.name.lowercase(Locale.US)}/"
+    }
+
+    fun getCanonicalBiosPath(fileName: String): String {
+        return "$PUBLIC_BASE_PATH/bios/$fileName"
+    }
+
+    fun getCanonicalFirmwarePath(fileName: String): String {
+        return "$PUBLIC_BASE_PATH/firmware/$fileName"
     }
 }

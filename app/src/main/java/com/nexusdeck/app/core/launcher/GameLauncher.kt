@@ -95,7 +95,7 @@ object GameLauncher {
                     putExtra("SHORTCUT_PATH", romPath)
                     putExtra("bootPath", romPath)
                 }
-                resolvedPackage.contains("aethersx2") || resolvedPackage.contains("armsx2") -> {
+                resolvedPackage.contains("aethersx2") || resolvedPackage.contains("armsx2") || resolvedPackage.contains("nethersx2") -> {
                     // Direct component launch ke EmulationActivity NetherSX2/AetherSX2 dengan bootPath absolut
                     val activityClass = if (resolvedPackage.contains("armsx2")) {
                         "come.nanodata.armsx2.EmulationActivity"
@@ -106,32 +106,57 @@ object GameLauncher {
                     setDataAndType(romUri, "application/octet-stream")
                     putExtra("bootPath", romPath)
                     putExtra("source", "nexusdeck")
+                    val biosFile = BiosManager.getTargetFileForEntry(context, BiosManager.ps2Bios)
+                    if (biosFile.exists()) {
+                        putExtra("bios_path", biosFile.absolutePath)
+                        putExtra("biosPath", biosFile.absolutePath)
+                    }
                 }
                 resolvedPackage.contains("duckstation") -> {
-                    // DuckStation (PS1): Direct Boot dengan verifikasi BIOS scph1001.bin
+                    // DuckStation (PS1): Direct Boot ke EmulationActivity dengan verifikasi BIOS scph1001.bin
+                    val activityClass = if (resolvedPackage == "com.github.stenzek.duckstation") {
+                        "com.github.stenzek.duckstation.EmulationActivity"
+                    } else {
+                        "org.duckstation.android.EmulationActivity"
+                    }
+                    component = android.content.ComponentName(resolvedPackage, activityClass)
                     setDataAndType(romUri, "application/octet-stream")
                     putExtra("bootPath", romPath)
+                    putExtra("isoPath", romPath)
                     val biosFile = BiosManager.getTargetFileForEntry(context, BiosManager.ps1Bios)
                     if (biosFile.exists()) {
                         putExtra("bios_path", biosFile.absolutePath)
+                        putExtra("biosPath", biosFile.absolutePath)
                     }
                 }
-                resolvedPackage.contains("aps3e") || resolvedPackage.contains("armsx3") || resolvedPackage.contains("rpcs3") -> {
-                    // APS3e / ARMSX3 (PS3): Direct Boot dengan injeksi Firmware Resmi Sony PS3UPDAT.PUP
+                resolvedPackage.contains("aps3e") || resolvedPackage.contains("armsx3") || resolvedPackage.contains("tinyproot") || resolvedPackage.contains("rpcs3") -> {
+                    // APS3e / ARMSX3 (PS3): Direct Boot dengan parameter path game folder dan firmware terpasang
+                    val activityClass = when {
+                        resolvedPackage.contains("tinyproot") -> "com.tinyproot.aps3e.MainActivity"
+                        resolvedPackage.contains("armsx3") -> "com.armsx3.play.MainActivity"
+                        else -> "org.aps3e.MainActivity"
+                    }
+                    component = android.content.ComponentName(resolvedPackage, activityClass)
                     setDataAndType(romUri, "application/octet-stream")
                     putExtra("bootPath", romPath)
                     putExtra("game_path", romPath)
+                    putExtra("game_dir", romPath)
                     val fwFile = BiosManager.getTargetFileForEntry(context, BiosManager.ps3Firmware)
                     if (fwFile.exists()) {
                         putExtra("firmware_path", fwFile.absolutePath)
+                        putExtra("firmwarePath", fwFile.absolutePath)
                     }
                 }
                 resolvedPackage.contains("lime3ds") || resolvedPackage.contains("citra") -> {
                     putExtra("GamePath", romPath)
                 }
                 resolvedPackage.contains("gamenative") || resolvedPackage.contains("winlator") -> {
+                    component = android.content.ComponentName(resolvedPackage, "app.gamenative.MainActivity")
                     putExtra("game_path", romPath)
                     putExtra("container_id", game.id)
+                    putExtra("extra_driver_name", engineConfig.driverName)
+                    putExtra("extra_dxvk_version", engineConfig.dxvkVersion)
+                    putExtra("extra_renderer_backend", engineConfig.rendererBackend)
                 }
                 resolvedPackage.contains("sudachi") -> {
                     putExtra("GamePath", romPath)

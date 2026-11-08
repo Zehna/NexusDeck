@@ -81,6 +81,7 @@ object UniversalArtworkScraper {
      */
     fun getLibretroSystemFolder(platform: GamePlatform): String {
         return when (platform) {
+            GamePlatform.PS1 -> "Sony_-_PlayStation"
             GamePlatform.PSP -> "Sony_-_PlayStation_Portable"
             GamePlatform.PS2 -> "Sony_-_PlayStation_2"
             GamePlatform.PS3 -> "Sony_-_PlayStation_3"

@@ -41,7 +41,7 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          name: "NexusDeck ${{ github.ref_name }} - Dynamic Engine Resolver, Offline Runtime & Comprehensive Testing"
+          name: "NexusDeck ${{ github.ref_name }} - Full Spectrum Direct Boot & Automated Bundle Setup"
           tag_name: ${{ github.ref_name }}
           files: NexusDeck-${{ github.ref_name }}.apk
           draft: false

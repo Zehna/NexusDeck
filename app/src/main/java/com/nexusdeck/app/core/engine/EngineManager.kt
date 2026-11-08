@@ -161,8 +161,8 @@ object EngineManager {
         name = "APS3e (RPCS3 Android)",
         platform = GamePlatform.PS3,
         targetEmulator = TargetEmulator.ARMSX3,
-        primaryPackageName = "org.aps3e",
-        alternatePackageNames = listOf("com.armsx3.play", "org.rpcs3"),
+        primaryPackageName = "com.tinyproot.aps3e",
+        alternatePackageNames = listOf("com.armsx3.play", "org.aps3e", "org.rpcs3"),
         downloadUrl = "https://github.com/APS3e/APS3e/releases/latest/download/APS3e.apk",
         estimatedSizeLabel = "~26 MB",
         description = "Engine PlayStation 3 ultra-ringan (~26 MB) generasi baru berbasis RPCS3 & Vulkan.",
@@ -173,12 +173,13 @@ object EngineManager {
     val duckStationEngine = EngineInfo(
         id = "duckstation",
         name = "DuckStation",
-        platform = GamePlatform.PS2,
-        targetEmulator = TargetEmulator.ARMSX2,
-        primaryPackageName = "org.duckstation.android",
+        platform = GamePlatform.PS1,
+        targetEmulator = TargetEmulator.DuckStation,
+        primaryPackageName = "com.github.stenzek.duckstation",
+        alternatePackageNames = listOf("org.duckstation.android"),
         downloadUrl = "https://github.com/stenzek/duckstation/releases/latest/download/duckstation-android.apk",
         estimatedSizeLabel = "~16 MB",
-        description = "Emulator PlayStation 1 berpresisi tinggi dengan dukungan BIOS otomatis.",
+        description = "Emulator PlayStation 1 akurat performa tinggi dengan dukungan CHD & PGXP.",
         version = "latest",
         githubRepo = "stenzek/duckstation"
     )
@@ -322,6 +323,7 @@ object EngineManager {
 
     fun getEngineForPlatform(platform: GamePlatform): EngineInfo {
         return when (platform) {
+            GamePlatform.PS1 -> duckStationEngine
             GamePlatform.PSP -> ppssppEngine
             GamePlatform.PS2 -> netherSx2Engine
             GamePlatform.PC -> gameNativeEngine
@@ -332,6 +334,7 @@ object EngineManager {
 
     fun getEngineForEmulator(targetEmulator: TargetEmulator): EngineInfo {
         return when (targetEmulator) {
+            TargetEmulator.DuckStation -> duckStationEngine
             TargetEmulator.PPSSPP -> ppssppEngine
             TargetEmulator.ARMSX2 -> netherSx2Engine
             TargetEmulator.GameNative -> gameNativeEngine

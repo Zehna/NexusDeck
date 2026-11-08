@@ -40,10 +40,10 @@ object BiosManager {
     val ps1Bios = BiosEntry(
         id = "bios_ps1_scph1001",
         fileName = "scph1001.bin",
-        platform = GamePlatform.PS2,
+        platform = GamePlatform.PS1,
         downloadUrl = "https://archive.org/download/SonyPlayStationBIOS/SCPH1001.BIN",
         estimatedSizeLabel = "512 KB",
-        description = "PlayStation 1 (PSX) System BIOS SCPH-1001 NTSC-U."
+        description = "PlayStation 1 (PSX) System BIOS SCPH-1001 NTSC-U untuk DuckStation."
     )
 
     val ps2Bios = BiosEntry(
@@ -71,21 +71,15 @@ object BiosManager {
     )
 
     // =========================================================================
-    // Direktori Penyimpanan
+    // Direktori Penyimpanan Publik Bersama (/NexusDeck/bios & /NexusDeck/firmware)
     // =========================================================================
 
     fun getBiosDir(context: Context): File {
-        val root = context.getExternalFilesDir(null) ?: context.filesDir
-        val biosDir = File(root, "bios")
-        if (!biosDir.exists()) biosDir.mkdirs()
-        return biosDir
+        return com.nexusdeck.app.core.storage.NexusStorageManager.getBiosDir(context)
     }
 
     fun getFirmwareDir(context: Context): File {
-        val root = context.getExternalFilesDir(null) ?: context.filesDir
-        val fwDir = File(root, "firmware")
-        if (!fwDir.exists()) fwDir.mkdirs()
-        return fwDir
+        return com.nexusdeck.app.core.storage.NexusStorageManager.getFirmwareDir(context)
     }
 
     fun getTargetFileForEntry(context: Context, entry: BiosEntry): File {
@@ -99,6 +93,7 @@ object BiosManager {
 
     fun getRequiredEntryForPlatform(platform: GamePlatform): BiosEntry? {
         return when (platform) {
+            GamePlatform.PS1 -> ps1Bios
             GamePlatform.PS2 -> ps2Bios
             GamePlatform.PS3 -> ps3Firmware
             else -> null

@@ -7,10 +7,34 @@ import com.nexusdeck.app.core.model.TargetEmulator
 object MockGames {
 
     /**
-     * Featured Catalog (14 Game Populer Lintas Platform sesuai spesifikasi PSP, PS2, PC, PS3, Nintendo)
+     * Featured Catalog (16 Game Populer Lintas Platform: PS1, PSP, PS2, PC, PS3, Nintendo)
      * Menggunakan URL Box Art Resmi Wikipedia & Steam CDN (Zero Unsplash Stock Photos).
      */
     val catalog: List<GameItem> = listOf(
+        // ================= PS1 =================
+        GameItem(
+            id = "ps1_castlevania_sotn",
+            title = "Castlevania: Symphony of the Night",
+            platform = GamePlatform.PS1,
+            coverUrl = "https://upload.wikimedia.org/wikipedia/en/5/5e/Castlevania_SOTN_PAL.jpg",
+            minRamGb = 2,
+            recommendedSocKeywords = listOf("snapdragon_8", "snapdragon_7", "dimensity_8", "helio_g99"),
+            targetEmulator = TargetEmulator.DuckStation,
+            fileSizeLabel = "445 MB",
+            downloadUrl = "https://archive.org/download/ps1-chd-collection/castlevania_sotn.chd"
+        ),
+        GameItem(
+            id = "ps1_tekken_3",
+            title = "Tekken 3",
+            platform = GamePlatform.PS1,
+            coverUrl = "https://upload.wikimedia.org/wikipedia/en/a/a4/Tekken_3_Poster.jpg",
+            minRamGb = 2,
+            recommendedSocKeywords = listOf("snapdragon_8", "snapdragon_7", "dimensity_8", "helio_g99"),
+            targetEmulator = TargetEmulator.DuckStation,
+            fileSizeLabel = "480 MB",
+            downloadUrl = "https://archive.org/download/ps1-chd-collection/tekken_3.chd"
+        ),
+
         // ================= PSP =================
         GameItem(
             id = "psp_gow_ghost_of_sparta",

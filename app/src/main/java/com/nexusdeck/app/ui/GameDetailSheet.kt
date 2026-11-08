@@ -717,7 +717,7 @@ private fun GameActionSection(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "Download Langsung ke Nexus (${game.fileSizeLabel})",
+                        text = "⚡ Download & Play (${game.fileSizeLabel})",
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.ExtraBold,
                             letterSpacing = 0.4.sp

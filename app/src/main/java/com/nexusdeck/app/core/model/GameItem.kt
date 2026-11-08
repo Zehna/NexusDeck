@@ -5,6 +5,7 @@ enum class GamePlatform(
     val filterLabel: String,
     val defaultExtension: String
 ) {
+    PS1("PS1", "PlayStation 1", "chd"),
     PSP("PSP", "PSP", "iso"),
     NINTENDO("Nintendo", "Nintendo / Retro", "gba"),
     PS2("PS2", "PlayStation 2", "iso"),
@@ -13,6 +14,7 @@ enum class GamePlatform(
 }
 
 enum class TargetEmulator(val displayName: String) {
+    DuckStation("DuckStation"),
     PPSSPP("PPSSPP Core"),
     Lemuroid("Lemuroid Core"),
     NexusRetroCore("Lemuroid Core"),

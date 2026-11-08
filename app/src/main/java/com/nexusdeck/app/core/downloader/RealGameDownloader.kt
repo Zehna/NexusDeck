@@ -284,7 +284,7 @@ class RealGameDownloader(private val context: Context) {
             }
             file.absolutePath
         } catch (_: Exception) {
-            "/storage/emulated/0/Android/data/com.nexusdeck.app/files/games/${game.platform.name.lowercase()}/${game.id}.$extension"
+            "${com.nexusdeck.app.core.storage.NexusStorageManager.PUBLIC_BASE_PATH}/games/${game.platform.name.lowercase()}/${game.id}.$extension"
         }
     }
 }

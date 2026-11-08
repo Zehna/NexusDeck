@@ -66,6 +66,17 @@ object PlatformExecutionMatrix {
         description = "Engine wrapper PC x86/x64 dengan Turnip GPU driver & profil DXVK."
     )
 
+    val ps1Rule = PlatformExecutionRule(
+        platform = GamePlatform.PS1,
+        executionType = ExecutionType.NATIVE_ENGINE_REQUIRES_BIOS,
+        requiresBios = true,
+        requiresFirmware = false,
+        requiredFileLabel = "scph1001.bin (PS1 BIOS)",
+        defaultEngineId = "duckstation",
+        defaultEngineName = "DuckStation",
+        description = "Engine DuckStation dengan Direct Boot EmulationActivity dan verifikasi BIOS SCPH-1001 otomatis."
+    )
+
     val ps2Rule = PlatformExecutionRule(
         platform = GamePlatform.PS2,
         executionType = ExecutionType.NATIVE_ENGINE_REQUIRES_BIOS,
@@ -89,6 +100,7 @@ object PlatformExecutionMatrix {
     )
 
     private val rulesMap: Map<GamePlatform, PlatformExecutionRule> = mapOf(
+        GamePlatform.PS1 to ps1Rule,
         GamePlatform.NINTENDO to nintendoRule,
         GamePlatform.PSP to pspRule,
         GamePlatform.PC to pcRule,

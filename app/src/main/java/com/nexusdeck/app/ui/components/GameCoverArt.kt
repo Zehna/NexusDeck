@@ -32,6 +32,7 @@ import com.nexusdeck.app.core.model.GamePlatform
 
 fun platformBadgeColor(platform: GamePlatform): Color {
     return when (platform) {
+        GamePlatform.PS1 -> Color(0xFF94A3B8) // Slate Silver Gray (PlayStation 1)
         GamePlatform.PSP -> Color(0xFF06B6D4) // Cyan Neon Glow
         GamePlatform.PS2 -> Color(0xFF3B82F6) // Deep Royal Blue PlayStation
         GamePlatform.NINTENDO -> Color(0xFFEF4444) // Neon Crimson Red (Nintendo)
