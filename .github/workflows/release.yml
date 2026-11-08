@@ -36,14 +36,14 @@ jobs:
         run: ./gradlew assembleDebug --stacktrace
 
       - name: Rename APK for Release
-        run: cp app/build/outputs/apk/debug/app-debug.apk NexusDeck-v1.0.0.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk NexusDeck-${{ github.ref_name }}.apk
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          name: "NexusDeck v1.0.0 - Universal Handheld Gaming Orchestrator"
+          name: "NexusDeck ${{ github.ref_name }} - Auto-Play Pipeline, Zero-Setup Lemuroid Engine & Universal Box Art Scraper"
           tag_name: ${{ github.ref_name }}
-          files: NexusDeck-v1.0.0.apk
+          files: NexusDeck-${{ github.ref_name }}.apk
           draft: false
           prerelease: false
           generate_release_notes: true
