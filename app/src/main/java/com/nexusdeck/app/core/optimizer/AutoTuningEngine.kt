@@ -29,11 +29,18 @@ class AutoTuningEngine {
                 "System Vulkan (Stock)"
             }
 
-            // 2. Logika Resolusi berdasarkan Tier SoC
-            val targetResolution = when (socTier) {
-                SoCTier.FLAGSHIP -> "1080p (2x Scaling)"
-                SoCTier.MIDRANGE -> "720p (1.5x Scaling)"
-                SoCTier.ENTRY -> "Native / 1x"
+            // 2. Logika Resolusi berdasarkan Tier SoC & Platform
+            val targetResolution = when (game.platform) {
+                GamePlatform.PSP -> when (socTier) {
+                    SoCTier.FLAGSHIP -> "1080p (4x PSP Scaling)"
+                    SoCTier.MIDRANGE -> "1080p (3x PSP Scaling)"
+                    SoCTier.ENTRY -> "720p (2x PSP Scaling)"
+                }
+                else -> when (socTier) {
+                    SoCTier.FLAGSHIP -> "1080p (2x Scaling)"
+                    SoCTier.MIDRANGE -> "720p (1.5x Scaling)"
+                    SoCTier.ENTRY -> "Native / 1x"
+                }
             }
 
             // 3. Logika Renderer Backend
@@ -57,7 +64,7 @@ class AutoTuningEngine {
                         "DXVK 1.10.3"
                     }
                 }
-                GamePlatform.PS2, GamePlatform.PS3 -> "N/A (Native Console Pipeline)"
+                GamePlatform.PSP, GamePlatform.PS2, GamePlatform.PS3 -> "N/A (Native Console Pipeline)"
             }
 
             val cpuDynarecPreset = if (

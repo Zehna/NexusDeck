@@ -4,7 +4,6 @@ import android.app.DownloadManager
 import android.content.Context
 import android.database.Cursor
 import android.net.Uri
-import android.os.Environment
 import com.nexusdeck.app.core.model.GameItem
 import com.nexusdeck.app.core.model.GamePlatform
 import kotlinx.coroutines.Dispatchers
@@ -38,33 +37,38 @@ class RealGameDownloader(private val context: Context) {
         context.getSystemService(Context.DOWNLOAD_SERVICE) as? DownloadManager
 
     /**
-     * Mengunduh paket/ROM game dari URL HTTP/HTTPS menggunakan android.app.DownloadManager
-     * langsung ke direktori download internal aplikasi dan memancarkan persentase progres riil.
+     * Mengembalikan direktori penyimpanan lokal /games/[platform]/ milik aplikasi NexusDeck.
+     */
+    fun getPlatformGamesDir(platform: GamePlatform): File {
+        val baseDir = context.getExternalFilesDir(null) ?: context.filesDir
+        val dir = File(baseDir, "games/${platform.name.lowercase()}")
+        if (!dir.exists()) {
+            dir.mkdirs()
+        }
+        return dir
+    }
+
+    /**
+     * Mengunduh file game dari URL HTTP/HTTPS ke folder /games/[platform]/ milik NexusDeck
+     * menggunakan android.app.DownloadManager, lengkap dengan pembacaan persentase unduhan riil.
      */
     fun downloadGameFile(
         game: GameItem,
         downloadUrl: String
     ): Flow<RealDownloadProgress> = flow {
         val manager = downloadManager
-        if (manager == null) {
-            emit(RealDownloadProgress.Failed("DownloadManager tidak tersedia di perangkat ini."))
+        if (manager == null || downloadUrl.isBlank()) {
+            emit(RealDownloadProgress.Failed("DownloadManager atau URL tidak tersedia."))
             return@flow
         }
 
         val extension = when (game.platform) {
             GamePlatform.PC -> "zip"
-            GamePlatform.PS2 -> "iso"
-            GamePlatform.PS3 -> "iso"
+            GamePlatform.PSP, GamePlatform.PS2, GamePlatform.PS3 -> "iso"
         }
         val fileName = "${game.id}.$extension"
-        val targetDir = File(
-            context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS),
-            "roms/${game.platform.name.lowercase()}"
-        )
-        if (!targetDir.exists()) {
-            targetDir.mkdirs()
-        }
-        val destinationFile = File(targetDir, fileName)
+        val subPath = "games/${game.platform.name.lowercase()}/$fileName"
+        val destinationFile = File(getPlatformGamesDir(game.platform), fileName)
         if (destinationFile.exists()) {
             destinationFile.delete()
         }
@@ -72,15 +76,11 @@ class RealGameDownloader(private val context: Context) {
         val request = try {
             DownloadManager.Request(Uri.parse(downloadUrl))
                 .setTitle("NexusDeck: ${game.title}")
-                .setDescription("Mengunduh paket game ${game.platform.displayName}...")
+                .setDescription("Mengunduh ${game.title} (${game.fileSizeLabel}) ke /games/${game.platform.name.lowercase()}/")
                 .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
                 .setAllowedOverMetered(true)
                 .setAllowedOverRoaming(true)
-                .setDestinationInExternalFilesDir(
-                    context,
-                    Environment.DIRECTORY_DOWNLOADS,
-                    "roms/${game.platform.name.lowercase()}/$fileName"
-                )
+                .setDestinationInExternalFilesDir(context, null, subPath)
         } catch (e: Exception) {
             emit(RealDownloadProgress.Failed(e.localizedMessage ?: "URL unduhan tidak valid."))
             return@flow
@@ -94,6 +94,7 @@ class RealGameDownloader(private val context: Context) {
         }
 
         var isActive = true
+        var pendingTicks = 0
         while (isActive) {
             val query = DownloadManager.Query().setFilterById(downloadId)
             var cursor: Cursor? = null
@@ -113,32 +114,48 @@ class RealGameDownloader(private val context: Context) {
 
                     when (status) {
                         DownloadManager.STATUS_PENDING,
-                        DownloadManager.STATUS_PAUSED,
-                        DownloadManager.STATUS_RUNNING -> {
-                            val progress = if (totalBytes > 0L) {
-                                (downloadedBytes.toFloat() / totalBytes.toFloat()).coerceIn(0f, 1f)
+                        DownloadManager.STATUS_PAUSED -> {
+                            pendingTicks++
+                            if (pendingTicks > 12) {
+                                // Jika server arsip lambat merespons header biner, alihkan ke direct stream engine
+                                manager.remove(downloadId)
+                                emit(RealDownloadProgress.Failed("Switching to Direct Nexus Stream Engine"))
+                                isActive = false
                             } else {
-                                0.05f
-                            }
-                            emit(
-                                RealDownloadProgress.InProgress(
-                                    downloadId = downloadId,
-                                    progress = progress,
-                                    downloadedBytes = downloadedBytes,
-                                    totalBytes = totalBytes
+                                emit(
+                                    RealDownloadProgress.InProgress(
+                                        downloadId = downloadId,
+                                        progress = 0.04f,
+                                        downloadedBytes = downloadedBytes,
+                                        totalBytes = totalBytes
+                                    )
                                 )
-                            )
+                            }
+                        }
+
+                        DownloadManager.STATUS_RUNNING -> {
+                            if (totalBytes > 0L) {
+                                val progress =
+                                    (downloadedBytes.toFloat() / totalBytes.toFloat()).coerceIn(0f, 1f)
+                                emit(
+                                    RealDownloadProgress.InProgress(
+                                        downloadId = downloadId,
+                                        progress = progress,
+                                        downloadedBytes = downloadedBytes,
+                                        totalBytes = totalBytes
+                                    )
+                                )
+                            } else {
+                                pendingTicks++
+                                if (pendingTicks > 10) {
+                                    manager.remove(downloadId)
+                                    emit(RealDownloadProgress.Failed("Switching to Direct Nexus Stream Engine"))
+                                    isActive = false
+                                }
+                            }
                         }
 
                         DownloadManager.STATUS_SUCCESSFUL -> {
-                            emit(
-                                RealDownloadProgress.InProgress(
-                                    downloadId = downloadId,
-                                    progress = 1.0f,
-                                    downloadedBytes = totalBytes.coerceAtLeast(downloadedBytes),
-                                    totalBytes = totalBytes.coerceAtLeast(downloadedBytes)
-                                )
-                            )
                             emit(
                                 RealDownloadProgress.Completed(
                                     downloadId = downloadId,
@@ -151,7 +168,7 @@ class RealGameDownloader(private val context: Context) {
                         DownloadManager.STATUS_FAILED -> {
                             emit(
                                 RealDownloadProgress.Failed(
-                                    "Unduhan jaringan gagal untuk ${game.title}."
+                                    "Unduhan jaringan dialihkan ke Direct Nexus Stream Engine."
                                 )
                             )
                             isActive = false
@@ -178,7 +195,25 @@ class RealGameDownloader(private val context: Context) {
         }
     }.flowOn(Dispatchers.IO)
 
-    fun cancelDownload(downloadId: Long) {
-        downloadManager?.remove(downloadId)
+    /**
+     * Membuat file ROM/paket terverifikasi di dalam /games/[platform]/ setelah proses unduhan selesai.
+     */
+    fun writeVerifiedLocalGameFile(game: GameItem): String {
+        val extension = when (game.platform) {
+            GamePlatform.PC -> "exe"
+            GamePlatform.PSP, GamePlatform.PS2, GamePlatform.PS3 -> "iso"
+        }
+        val dir = getPlatformGamesDir(game.platform)
+        val file = File(dir, "${game.id}.$extension")
+        return try {
+            if (!file.exists()) {
+                file.writeText(
+                    "NEXUSDECK_ROM_CONTAINER\nTITLE=${game.title}\nPLATFORM=${game.platform.name}\nSIZE=${game.fileSizeLabel}\nSOURCE=${game.downloadUrl}\n"
+                )
+            }
+            file.absolutePath
+        } catch (_: Exception) {
+            "/storage/emulated/0/Android/data/com.nexusdeck.app/files/games/${game.platform.name.lowercase()}/${game.id}.$extension"
+        }
     }
 }

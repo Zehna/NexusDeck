@@ -20,11 +20,22 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
 import com.nexusdeck.app.core.model.GamePlatform
+
+fun platformBadgeColor(platform: GamePlatform): Color {
+    return when (platform) {
+        GamePlatform.PSP -> Color(0xFFA855F7)
+        GamePlatform.PS2 -> Color(0xFF6366F1)
+        GamePlatform.PC -> Color(0xFF10B981)
+        GamePlatform.PS3 -> Color(0xFFEC4899)
+    }
+}
 
 @Composable
 fun GameCoverArt(
@@ -34,11 +45,7 @@ fun GameCoverArt(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val platformAccent = when (platform) {
-        GamePlatform.PC -> Color(0xFF00E5FF)
-        GamePlatform.PS2 -> Color(0xFF3B82F6)
-        GamePlatform.PS3 -> Color(0xFFA855F7)
-    }
+    val accent = platformBadgeColor(platform)
 
     Box(modifier = modifier) {
         SubcomposeAsyncImage(
@@ -50,29 +57,32 @@ fun GameCoverArt(
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize(),
             loading = {
-                OfflinePlatformFallback(
+                OfflinePosterFallback(
+                    title = title,
                     platform = platform,
-                    platformAccent = platformAccent
+                    accent = accent
                 )
             },
             error = {
-                OfflinePlatformFallback(
+                OfflinePosterFallback(
+                    title = title,
                     platform = platform,
-                    platformAccent = platformAccent
+                    accent = accent
                 )
             }
         )
 
-        // Scrim gelap di bagian atas & bawah agar badge platform tetap terbaca jelas
+        // Vignette gradasi gelap halus di bagian bawah poster agar judul & badge kontras
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(
                     brush = Brush.verticalGradient(
                         colors = listOf(
-                            Color(0x99090D16),
-                            Color(0x22090D16),
-                            Color(0xCC090D16)
+                            Color(0x440B0B0E),
+                            Color.Transparent,
+                            Color(0xCC0B0B0E),
+                            Color(0xF50B0B0E)
                         )
                     )
                 )
@@ -81,21 +91,24 @@ fun GameCoverArt(
 }
 
 @Composable
-private fun OfflinePlatformFallback(
+private fun OfflinePosterFallback(
+    title: String,
     platform: GamePlatform,
-    platformAccent: Color
+    accent: Color
 ) {
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(
-                brush = Brush.radialGradient(
+                brush = Brush.linearGradient(
                     colors = listOf(
-                        platformAccent.copy(alpha = 0.35f),
-                        Color(0xFF0B1120)
+                        accent.copy(alpha = 0.35f),
+                        Color(0xFF1A1826),
+                        Color(0xFF0B0B0E)
                     )
                 )
-            ),
+            )
+            .padding(14.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -103,27 +116,29 @@ private fun OfflinePlatformFallback(
         ) {
             Surface(
                 shape = RoundedCornerShape(10.dp),
-                color = Color(0xAA090D16),
-                border = BorderStroke(1.5.dp, platformAccent.copy(alpha = 0.75f))
+                color = Color(0xCC0B0B0E),
+                border = BorderStroke(1.dp, accent.copy(alpha = 0.7f))
             ) {
                 Text(
                     text = platform.displayName,
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.ExtraBold,
-                        letterSpacing = 2.sp
+                        letterSpacing = 1.5.sp
                     ),
-                    color = platformAccent,
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+                    color = accent,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp)
                 )
             }
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "OFFLINE ARTWORK",
-                style = MaterialTheme.typography.labelSmall.copy(
-                    fontSize = 9.sp,
-                    letterSpacing = 1.2.sp
+                text = title,
+                style = MaterialTheme.typography.labelMedium.copy(
+                    fontWeight = FontWeight.Bold
                 ),
-                color = Color(0xFF94A3B8)
+                color = Color(0xFFE4E4E7),
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
             )
         }
     }

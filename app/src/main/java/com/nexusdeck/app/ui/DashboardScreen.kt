@@ -11,30 +11,46 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -43,8 +59,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
@@ -61,16 +77,22 @@ import com.nexusdeck.app.core.manager.GameInstallManager
 import com.nexusdeck.app.core.model.CompatibilityTier
 import com.nexusdeck.app.core.model.EngineConfig
 import com.nexusdeck.app.core.model.GameItem
-import com.nexusdeck.app.core.model.GamePlatform
 import com.nexusdeck.app.core.model.GameState
 import com.nexusdeck.app.core.model.HardwareSpec
+import com.nexusdeck.app.core.optimizer.AutoTuningEngine
 import com.nexusdeck.app.core.profiler.HardwareProfiler
+import com.nexusdeck.app.core.repository.OnlineGameCatalogService
 import com.nexusdeck.app.data.MockGames
-import com.nexusdeck.app.ui.components.ConsoleControllerLegendBar
+import com.nexusdeck.app.ui.components.BottomNavBar
+import com.nexusdeck.app.ui.components.CategoryPillFilter
 import com.nexusdeck.app.ui.components.ConsoleFilterTabs
 import com.nexusdeck.app.ui.components.GameCoverArt
+import com.nexusdeck.app.ui.components.NexusBottomTab
 import com.nexusdeck.app.ui.components.consoleCardFocus
-import com.nexusdeck.app.ui.components.nextPlatformTab
+import com.nexusdeck.app.ui.components.nextCategoryFilter
+import com.nexusdeck.app.ui.components.platformBadgeColor
+import com.nexusdeck.app.ui.theme.NexusPalette
+import kotlinx.coroutines.delay
 
 private data class ActiveGameSession(
     val game: GameItem,
@@ -87,19 +109,34 @@ fun DashboardScreen(
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+
     val installManager = remember(context) {
         GameInstallManager(context, coroutineScope)
     }
-    val gameStates by installManager.gameStates.collectAsState()
+    val onlineCatalogService = remember { OnlineGameCatalogService() }
 
-    var selectedPlatform by remember { mutableStateOf<GamePlatform?>(null) }
+    val gameStates by installManager.gameStates.collectAsState()
+    val savedLibraryGames by installManager.savedLibraryGames.collectAsState()
+    val favoriteIds by installManager.favoriteIds.collectAsState()
+    val lastPlayedGameId by installManager.lastPlayedGameId.collectAsState()
+
+    var selectedBottomTab by remember { mutableStateOf(NexusBottomTab.HOME) }
+    var selectedCategoryPill by remember { mutableStateOf(CategoryPillFilter.ALL) }
+    var searchQuery by remember { mutableStateOf("") }
+
+    val liveCatalogGames = remember { mutableStateListOf<GameItem>().apply { addAll(games) } }
+    var currentPage by remember { mutableIntStateOf(1) }
+    var isLoadingOnline by remember { mutableStateOf(false) }
+    var isPaginatingMore by remember { mutableStateOf(false) }
+    var canLoadMorePages by remember { mutableStateOf(true) }
+
     var selectedGameForSheet by remember { mutableStateOf<GameItem?>(null) }
     var activeGameSession by remember { mutableStateOf<ActiveGameSession?>(null) }
     var missingEmulatorResult by remember {
         mutableStateOf<LauncherResult.EmulatorNotFound?>(null)
     }
 
-    // Jika sesi In-App Game Player sedang aktif, tampilkan layar fullscreen InAppGameScreen
+    // Jika sesi In-App Game Player sedang aktif, otomatis masuk ke layar Landscape InAppGameScreen
     val currentSession = activeGameSession
     if (currentSession != null) {
         InAppGameScreen(
@@ -134,56 +171,124 @@ fun DashboardScreen(
         return
     }
 
-    val filteredGames = remember(games, selectedPlatform) {
-        if (selectedPlatform == null) games
-        else games.filter { it.platform == selectedPlatform }
+    // Live Search & Filter terhadap OnlineGameCatalogService
+    LaunchedEffect(searchQuery, selectedCategoryPill) {
+        currentPage = 1
+        canLoadMorePages = !selectedCategoryPill.featuredOnly
+
+        if (selectedCategoryPill.featuredOnly && searchQuery.isBlank()) {
+            liveCatalogGames.clear()
+            liveCatalogGames.addAll(MockGames.catalog)
+            isLoadingOnline = false
+            return@LaunchedEffect
+        }
+
+        if (searchQuery.isNotBlank()) {
+            delay(320L) // Debounce saat pengguna mengetik judul
+        }
+
+        isLoadingOnline = true
+        onlineCatalogService.searchOnlineGames(
+            query = searchQuery,
+            platform = selectedCategoryPill.platform,
+            page = 1
+        ).collect { results ->
+            liveCatalogGames.clear()
+            liveCatalogGames.addAll(results)
+            isLoadingOnline = false
+        }
     }
 
-    var focusedIndex by remember(selectedPlatform) { mutableIntStateOf(0) }
-    val focusRequesters = remember(filteredGames) {
-        List(filteredGames.size) { FocusRequester() }
+    val gridState = rememberLazyGridState()
+    val shouldLoadMore by remember {
+        derivedStateOf {
+            val layoutInfo = gridState.layoutInfo
+            val totalItems = layoutInfo.totalItemsCount
+            val lastVisibleIndex = layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+            selectedBottomTab == NexusBottomTab.HOME &&
+                canLoadMorePages &&
+                !isLoadingOnline &&
+                !isPaginatingMore &&
+                totalItems >= 6 &&
+                lastVisibleIndex >= totalItems - 2
+        }
     }
 
-    // Berikan fokus awal ke kartu pertama saat daftar tab berganti
-    LaunchedEffect(filteredGames) {
-        if (filteredGames.isNotEmpty()) {
-            val safeIndex = focusedIndex.coerceIn(0, filteredGames.lastIndex)
-            focusedIndex = safeIndex
-            try {
-                focusRequesters.getOrNull(safeIndex)?.requestFocus()
-            } catch (_: Exception) {
-                // Abaikan jika komposisi belum siap menerima fokus
+    // Infinite Scroll Pagination dari Web Repository
+    LaunchedEffect(shouldLoadMore) {
+        if (shouldLoadMore && currentPage < 5) {
+            isPaginatingMore = true
+            val nextPage = currentPage + 1
+            onlineCatalogService.searchOnlineGames(
+                query = searchQuery,
+                platform = selectedCategoryPill.platform,
+                page = nextPage
+            ).collect { moreGames ->
+                val existingIds = liveCatalogGames.map { it.id }.toSet()
+                val uniqueNew = moreGames.filter { it.id !in existingIds }
+                if (uniqueNew.isEmpty()) {
+                    canLoadMorePages = false
+                } else {
+                    liveCatalogGames.addAll(uniqueNew)
+                    currentPage = nextPage
+                }
+                isPaginatingMore = false
             }
         }
     }
 
-    Column(
+    val installedCount = remember(gameStates) {
+        gameStates.values.count { it is GameState.Installed }
+    }
+
+    val displayedGames = remember(
+        selectedBottomTab,
+        liveCatalogGames.toList(),
+        savedLibraryGames,
+        favoriteIds,
+        gameStates
+    ) {
+        when (selectedBottomTab) {
+            NexusBottomTab.HOME -> liveCatalogGames.toList()
+            NexusBottomTab.FAVORITES -> {
+                val allKnown = LinkedHashMap<String, GameItem>()
+                savedLibraryGames.forEach { (id, g) -> allKnown[id] = g }
+                liveCatalogGames.forEach { allKnown[it.id] = it }
+                allKnown.values.filter { it.id in favoriteIds }
+            }
+            NexusBottomTab.LIBRARY -> {
+                val allKnown = LinkedHashMap<String, GameItem>()
+                savedLibraryGames.forEach { (id, g) -> allKnown[id] = g }
+                liveCatalogGames.forEach { allKnown[it.id] = it }
+                allKnown.values.filter { game ->
+                    val st = gameStates[game.id]
+                    st is GameState.Installed || st is GameState.Downloading || st is GameState.Extracting
+                }
+            }
+            NexusBottomTab.SETTINGS -> emptyList()
+        }
+    }
+
+    var focusedIndex by remember(selectedBottomTab, selectedCategoryPill) { mutableIntStateOf(0) }
+    val focusRequesters = remember(displayedGames) {
+        List(displayedGames.size) { FocusRequester() }
+    }
+
+    Box(
         modifier = modifier
             .fillMaxSize()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        Color(0xFF0E1726),
-                        Color(0xFF090D16)
-                    )
-                )
-            )
-            // Global Gamepad Key Handler untuk D-Pad, A (Cross), B (Circle), dan Y (Triangle)
+            .background(NexusPalette.DeepDarkBlack)
             .onPreviewKeyEvent { event ->
                 if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
-
                 when (event.nativeKeyEvent.keyCode) {
-                    // Tombol Y / Triangle -> Ganti Tab Kategori Platform
                     KeyEvent.KEYCODE_BUTTON_Y -> {
                         if (selectedGameForSheet == null) {
-                            selectedPlatform = nextPlatformTab(selectedPlatform)
+                            selectedCategoryPill = nextCategoryFilter(selectedCategoryPill)
                             true
                         } else {
                             false
                         }
                     }
-
-                    // Tombol B / Circle -> Tutup Game Detail BottomSheet atau Dialog
                     KeyEvent.KEYCODE_BUTTON_B,
                     KeyEvent.KEYCODE_ESCAPE -> {
                         when {
@@ -198,135 +303,206 @@ fun DashboardScreen(
                             else -> false
                         }
                     }
-
-                    // Tombol A / Cross -> Buka Detail Game yang sedang disorot
-                    KeyEvent.KEYCODE_BUTTON_A -> {
-                        if (selectedGameForSheet == null && filteredGames.isNotEmpty()) {
-                            val targetGame = filteredGames.getOrNull(
-                                focusedIndex.coerceIn(0, filteredGames.lastIndex)
-                            )
-                            if (targetGame != null) {
-                                selectedGameForSheet = targetGame
-                                true
-                            } else {
-                                false
-                            }
-                        } else {
-                            false
-                        }
-                    }
-
-                    // D-Pad Left / Right -> Pindah Fokus Antar Kartu Game secara Eksplisit
-                    KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                        if (selectedGameForSheet == null && filteredGames.isNotEmpty()) {
-                            val nextIndex = (focusedIndex + 1).coerceAtMost(filteredGames.lastIndex)
-                            focusedIndex = nextIndex
-                            try {
-                                focusRequesters.getOrNull(nextIndex)?.requestFocus()
-                            } catch (_: Exception) {
-                            }
-                            true
-                        } else {
-                            false
-                        }
-                    }
-
-                    KeyEvent.KEYCODE_DPAD_LEFT -> {
-                        if (selectedGameForSheet == null && filteredGames.isNotEmpty()) {
-                            val prevIndex = (focusedIndex - 1).coerceAtLeast(0)
-                            focusedIndex = prevIndex
-                            try {
-                                focusRequesters.getOrNull(prevIndex)?.requestFocus()
-                            } catch (_: Exception) {
-                            }
-                            true
-                        } else {
-                            false
-                        }
-                    }
-
                     else -> false
                 }
             }
-            .padding(horizontal = 24.dp, vertical = 14.dp)
     ) {
-        // Header Atas: Brand & Chip Informasi Perangkat
-        DashboardHeader(hardwareSpec = hardwareSpec)
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // Filter Tab Platform Bergaya Konsol dengan Counter Jumlah Game
-        ConsoleFilterTabs(
-            games = games,
-            selectedPlatform = selectedPlatform,
-            onSelectPlatform = { selectedPlatform = it }
-        )
-
-        Spacer(modifier = Modifier.height(14.dp))
-
-        // Body: Grid Kartu Game dengan D-Pad Focus & Coil Box Art
-        LazyVerticalGrid(
-            columns = GridCells.Adaptive(minSize = 250.dp),
-            contentPadding = PaddingValues(top = 6.dp, bottom = 12.dp, start = 4.dp, end = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(18.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp),
-            modifier = Modifier.weight(1f)
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .padding(horizontal = 16.dp)
         ) {
-            itemsIndexed(
-                items = filteredGames,
-                key = { _, game -> game.id }
-            ) { index, game ->
-                val compatibilityTier = remember(hardwareSpec, game) {
-                    HardwareProfiler.evaluateCompatibility(hardwareSpec, game)
-                }
-                val gameState = gameStates[game.id] ?: GameState.NotInstalled
-                val isCardFocused = focusedIndex == index
-                val focusRequester = focusRequesters.getOrElse(index) { FocusRequester() }
+            Spacer(modifier = Modifier.height(10.dp))
 
-                GameCatalogCard(
-                    game = game,
-                    compatibilityTier = compatibilityTier,
-                    gameState = gameState,
-                    isFocused = isCardFocused,
-                    focusRequester = focusRequester,
-                    onFocusChanged = { hasFocus ->
-                        if (hasFocus) {
-                            focusedIndex = index
-                        }
-                    },
-                    onClick = {
-                        focusedIndex = index
-                        selectedGameForSheet = game
-                    }
+            // 1. Header Atas: Brand Logo & Badge Hardware Tipis di Pojok Kanan
+            FullRoidHeader(hardwareSpec = hardwareSpec)
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            if (selectedBottomTab == NexusBottomTab.SETTINGS) {
+                SettingsTabContent(
+                    hardwareSpec = hardwareSpec,
+                    installedCount = installedCount,
+                    modifier = Modifier.weight(1f)
                 )
+            } else {
+                // 2. Kolom Pencarian Rounded Pill (Home Tab)
+                if (selectedBottomTab == NexusBottomTab.HOME) {
+                    FullRoidSearchBar(
+                        query = searchQuery,
+                        isSearching = isLoadingOnline,
+                        onQueryChange = { searchQuery = it },
+                        onClear = { searchQuery = "" }
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // 3. Kategori Pills Horizontal Scroll (All, Catalog, PSP, PlayStation 2, PC Games, PlayStation 3)
+                    ConsoleFilterTabs(
+                        selectedFilter = selectedCategoryPill,
+                        onSelectFilter = { selectedCategoryPill = it }
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+                } else {
+                    SectionTabBanner(
+                        tab = selectedBottomTab,
+                        itemCount = displayedGames.size
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+
+                // 4. Grid Katalog 2 Kolom Vertikal ala Poster Box Art + Infinite Scroll
+                if (displayedGames.isEmpty() && !isLoadingOnline) {
+                    EmptyTabPlaceholder(
+                        tab = selectedBottomTab,
+                        onExploreCatalog = {
+                            selectedBottomTab = NexusBottomTab.HOME
+                            selectedCategoryPill = CategoryPillFilter.ALL
+                            searchQuery = ""
+                        },
+                        modifier = Modifier.weight(1f)
+                    )
+                } else {
+                    LazyVerticalGrid(
+                        state = gridState,
+                        columns = GridCells.Fixed(2),
+                        contentPadding = PaddingValues(top = 4.dp, bottom = 104.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        itemsIndexed(
+                            items = displayedGames,
+                            key = { _, game -> game.id }
+                        ) { index, game ->
+                            val compatibilityTier = remember(hardwareSpec, game) {
+                                HardwareProfiler.evaluateCompatibility(hardwareSpec, game)
+                            }
+                            val gameState = gameStates[game.id] ?: GameState.NotInstalled
+                            val isFavorite = game.id in favoriteIds
+                            val isFocused = focusedIndex == index
+                            val focusRequester = focusRequesters.getOrElse(index) { FocusRequester() }
+
+                            PosterGameCard(
+                                game = game,
+                                compatibilityTier = compatibilityTier,
+                                gameState = gameState,
+                                isFavorite = isFavorite,
+                                isFocused = isFocused,
+                                focusRequester = focusRequester,
+                                onFocusChanged = { hasFocus ->
+                                    if (hasFocus) focusedIndex = index
+                                },
+                                onToggleFavorite = {
+                                    installManager.toggleFavorite(game)
+                                },
+                                onClick = {
+                                    focusedIndex = index
+                                    selectedGameForSheet = game
+                                }
+                            )
+                        }
+
+                        if (isLoadingOnline || isPaginatingMore) {
+                            item(span = { GridItemSpan(2) }) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 18.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(20.dp),
+                                            strokeWidth = 2.5.dp,
+                                            color = NexusPalette.SecondaryPurple
+                                        )
+                                        Text(
+                                            text = "Memuat katalog game online...",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = NexusPalette.TextSecondary
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        // 5. Modern Bottom Navigation Bar + Floating Center Quick-Resume Button
+        BottomNavBar(
+            selectedTab = selectedBottomTab,
+            installedCount = installedCount,
+            onSelectTab = { selectedBottomTab = it },
+            onQuickResumeClick = {
+                val allKnown = LinkedHashMap<String, GameItem>().apply {
+                    savedLibraryGames.forEach { (id, g) -> put(id, g) }
+                    liveCatalogGames.forEach { put(it.id, it) }
+                }
+                val resumeCandidate = lastPlayedGameId?.let { allKnown[it] }
+                    ?: allKnown.values.firstOrNull { gameStates[it.id] is GameState.Installed }
 
-        // Footer Bar Petunjuk Kontrol Stik / Gamepad
-        ConsoleControllerLegendBar(
-            isDetailSheetOpen = selectedGameForSheet != null
+                if (resumeCandidate != null) {
+                    val state = gameStates[resumeCandidate.id]
+                    val romPath = (state as? GameState.Installed)?.romPath
+                        ?: "/games/${resumeCandidate.platform.name.lowercase()}/${resumeCandidate.id}.iso"
+                    val optimal = AutoTuningEngine.generateOptimalConfig(hardwareSpec, resumeCandidate)
+                    installManager.markLastPlayed(resumeCandidate)
+                    activeGameSession = ActiveGameSession(
+                        game = resumeCandidate,
+                        romPath = romPath,
+                        engineConfig = optimal,
+                        autoTuneActive = true
+                    )
+                } else {
+                    val featuredFirst = liveCatalogGames.firstOrNull() ?: MockGames.catalog.first()
+                    selectedGameForSheet = featuredFirst
+                    Toast.makeText(
+                        context,
+                        "Unduh game terlebih dahulu untuk Quick-Resume.",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            },
+            modifier = Modifier.align(Alignment.BottomCenter)
         )
     }
 
-    // BottomSheet Detail Game, Auto-Tuning Profile, & Instalasi / Launch
+    // BottomSheet Detail Game, Direct Web Download, & In-App Play
     val activeGame = selectedGameForSheet
     if (activeGame != null) {
         val activeCompatibility = remember(hardwareSpec, activeGame) {
             HardwareProfiler.evaluateCompatibility(hardwareSpec, activeGame)
         }
         val activeGameState = gameStates[activeGame.id] ?: GameState.NotInstalled
+        val isFav = activeGame.id in favoriteIds
 
         GameDetailBottomSheet(
             game = activeGame,
             hardwareSpec = hardwareSpec,
             compatibilityTier = activeCompatibility,
             gameState = activeGameState,
+            isFavorite = isFav,
+            onToggleFavorite = {
+                installManager.toggleFavorite(activeGame)
+            },
             onInstallClick = {
                 installManager.installGame(activeGame)
+                Toast.makeText(
+                    context,
+                    "Mengunduh ${activeGame.title} ke /games/${activeGame.platform.name.lowercase()}/...",
+                    Toast.LENGTH_SHORT
+                ).show()
             },
             onPlayInAppClick = { romPath, engineConfig, autoTuneActive ->
+                installManager.markLastPlayed(activeGame)
                 selectedGameForSheet = null
                 activeGameSession = ActiveGameSession(
                     game = activeGame,
@@ -336,6 +512,7 @@ fun DashboardScreen(
                 )
             },
             onLaunchExternalClick = { romPath, engineConfig, autoTuneActive ->
+                installManager.markLastPlayed(activeGame)
                 val result = GameLauncher.launchGame(
                     context = context,
                     game = activeGame,
@@ -361,7 +538,6 @@ fun DashboardScreen(
         )
     }
 
-    // Alert Dialog jika Emulator Target Belum Terpasang
     val missingEmulator = missingEmulatorResult
     if (missingEmulator != null) {
         EmulatorNotFoundDialog(
@@ -372,66 +548,162 @@ fun DashboardScreen(
 }
 
 @Composable
-private fun DashboardHeader(hardwareSpec: HardwareSpec) {
+private fun FullRoidHeader(hardwareSpec: HardwareSpec) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Column {
-            Text(
-                text = "NEXUSDECK",
-                style = MaterialTheme.typography.headlineSmall.copy(
-                    fontWeight = FontWeight.ExtraBold,
-                    letterSpacing = 2.sp
-                ),
-                color = MaterialTheme.colorScheme.onBackground
-            )
-            Text(
-                text = "Universal Gaming Orchestrator",
-                style = MaterialTheme.typography.labelMedium.copy(
-                    letterSpacing = 1.2.sp
-                ),
-                color = MaterialTheme.colorScheme.primary
-            )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(brush = NexusPalette.VerticalVioletGradient),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "N",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.ExtraBold
+                    ),
+                    color = Color.White
+                )
+            }
+
+            Column {
+                Text(
+                    text = "NexusDeck",
+                    style = MaterialTheme.typography.headlineSmall.copy(
+                        fontWeight = FontWeight.ExtraBold
+                    ),
+                    color = Color.White
+                )
+                Text(
+                    text = "Universal Cloud & Console Hub",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = NexusPalette.TextSecondary
+                )
+            }
         }
 
-        // Chip Informasi Perangkat Terdeteksi
+        // Badge Status Hardware Tipis di Pojok Kanan
         Surface(
             shape = RoundedCornerShape(50),
-            color = Color(0xFF162032),
-            border = BorderStroke(1.dp, Color(0xFF2A3B56))
+            color = NexusPalette.SurfaceCard,
+            border = BorderStroke(1.dp, NexusPalette.CardBorder)
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                modifier = Modifier.padding(horizontal = 11.dp, vertical = 6.dp)
             ) {
                 Box(
                     modifier = Modifier
-                        .size(8.dp)
+                        .size(7.dp)
                         .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary)
+                        .background(NexusPalette.SecondaryPurple)
                 )
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = "Device: ${hardwareSpec.socModel} | ${hardwareSpec.gpuModel} | ${hardwareSpec.totalRamGb} GB",
-                    style = MaterialTheme.typography.labelMedium.copy(
+                    text = "${hardwareSpec.socModel.take(16)} • ${hardwareSpec.totalRamGb}GB",
+                    style = MaterialTheme.typography.labelSmall.copy(
                         fontWeight = FontWeight.SemiBold
                     ),
-                    color = Color(0xFFE2E8F0),
+                    color = NexusPalette.TextPrimary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                Spacer(modifier = Modifier.width(8.dp))
-                Surface(
-                    shape = RoundedCornerShape(50),
-                    color = Color(0xFF090D16)
-                ) {
+            }
+        }
+    }
+}
+
+@Composable
+private fun FullRoidSearchBar(
+    query: String,
+    isSearching: Boolean,
+    onQueryChange: (String) -> Unit,
+    onClear: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(48.dp),
+        shape = RoundedCornerShape(50),
+        color = NexusPalette.SurfaceCard,
+        border = BorderStroke(
+            width = 1.dp,
+            color = if (query.isNotEmpty()) NexusPalette.PrimaryViolet else NexusPalette.CardBorder
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.Search,
+                contentDescription = "Search",
+                tint = NexusPalette.SecondaryPurple,
+                modifier = Modifier.size(20.dp)
+            )
+
+            Spacer(modifier = Modifier.width(10.dp))
+
+            Box(
+                modifier = Modifier.weight(1f),
+                contentAlignment = Alignment.CenterStart
+            ) {
+                if (query.isEmpty()) {
                     Text(
-                        text = hardwareSpec.vulkanVersion,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                        text = "Search games across PS2, PSP, PC, PS3...",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = NexusPalette.TextMuted,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                BasicTextField(
+                    value = query,
+                    onValueChange = onQueryChange,
+                    singleLine = true,
+                    textStyle = MaterialTheme.typography.bodyMedium.copy(
+                        color = Color.White,
+                        fontWeight = FontWeight.Medium
+                    ),
+                    cursorBrush = SolidColor(NexusPalette.SecondaryPurple),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            if (isSearching) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(16.dp),
+                    strokeWidth = 2.dp,
+                    color = NexusPalette.SecondaryPurple
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+            }
+
+            if (query.isNotEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clip(CircleShape)
+                        .background(NexusPalette.ElevatedBackground)
+                        .clickable(onClick = onClear),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Clear search",
+                        tint = NexusPalette.TextSecondary,
+                        modifier = Modifier.size(14.dp)
                     )
                 }
             }
@@ -440,188 +712,448 @@ private fun DashboardHeader(hardwareSpec: HardwareSpec) {
 }
 
 @Composable
-fun GameCatalogCard(
+fun PosterGameCard(
     game: GameItem,
     compatibilityTier: CompatibilityTier,
-    gameState: GameState = GameState.NotInstalled,
+    gameState: GameState,
+    isFavorite: Boolean,
     isFocused: Boolean = false,
     focusRequester: FocusRequester = remember { FocusRequester() },
     onFocusChanged: (Boolean) -> Unit = {},
+    onToggleFavorite: () -> Unit = {},
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val platformAccent = when (game.platform) {
-        GamePlatform.PC -> Color(0xFF00E5FF)
-        GamePlatform.PS2 -> Color(0xFF3B82F6)
-        GamePlatform.PS3 -> Color(0xFFA855F7)
-    }
-
+    val platformColor = platformBadgeColor(game.platform)
     val isInstalled = gameState is GameState.Installed
     val borderColor = when {
-        isFocused -> Color(0xFF00E5FF)
-        isInstalled -> Color(0xFF22C55E).copy(alpha = 0.65f)
-        else -> Color(0xFF23304A)
+        isFocused -> NexusPalette.SecondaryPurple
+        isInstalled -> Color(0xFF22C55E).copy(alpha = 0.7f)
+        else -> NexusPalette.CardBorder
     }
 
     Card(
         modifier = modifier
             .fillMaxWidth()
+            .aspectRatio(0.71f)
             .consoleCardFocus(
                 isFocused = isFocused,
                 focusRequester = focusRequester,
                 onFocusChanged = onFocusChanged,
                 onSelectAction = onClick,
-                glowColor = Color(0xFF00E5FF)
+                glowColor = NexusPalette.PrimaryViolet
             )
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isFocused) Color(0xFF17243B) else Color(0xFF131C2E)
+            containerColor = NexusPalette.SurfaceCard
         ),
         border = BorderStroke(
             width = if (isFocused) 2.dp else 1.dp,
             color = borderColor
         ),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = if (isFocused) 12.dp else 6.dp
-        )
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
     ) {
-        Column {
-            // Cover Banner Header dengan Coil AsyncImage & Fallback Offline
+        Box(modifier = Modifier.fillMaxSize()) {
+            // Full Vertical Poster Artwork
+            GameCoverArt(
+                coverUrl = game.coverUrl,
+                title = game.title,
+                platform = game.platform,
+                modifier = Modifier.fillMaxSize()
+            )
+
+            // Pojok Kiri Atas: Tombol Favorite Kecil
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(106.dp)
+                    .align(Alignment.TopStart)
+                    .padding(10.dp)
+                    .size(30.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xAA0B0B0E))
+                    .clickable(onClick = onToggleFavorite),
+                contentAlignment = Alignment.Center
             ) {
-                GameCoverArt(
-                    coverUrl = game.coverUrl,
-                    title = game.title,
-                    platform = game.platform,
-                    modifier = Modifier.matchParentSize()
+                Icon(
+                    imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                    contentDescription = "Favorite",
+                    tint = if (isFavorite) Color(0xFFEC4899) else Color.White,
+                    modifier = Modifier.size(16.dp)
                 )
-
-                Box(
-                    modifier = Modifier
-                        .matchParentSize()
-                        .padding(12.dp)
-                ) {
-                    // Tag Platform (PC / PS2 / PS3)
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = Color(0xCC090D16),
-                        border = BorderStroke(1.dp, platformAccent.copy(alpha = 0.8f)),
-                        modifier = Modifier.align(Alignment.TopStart)
-                    ) {
-                        Text(
-                            text = game.platform.displayName,
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = FontWeight.ExtraBold,
-                                letterSpacing = 1.sp
-                            ),
-                            color = platformAccent,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
-                    }
-
-                    // Tag Target Emulator (GameNative / ARMSX2 / ARMSX3)
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = Color(0xCC090D16),
-                        modifier = Modifier.align(Alignment.TopEnd)
-                    ) {
-                        Text(
-                            text = game.targetEmulator.displayName,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color(0xFFE2E8F0),
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
-                    }
-
-                    // Status Pill (Installed / Downloading / Extracting) di Kiri Bawah Cover
-                    InstallStatusPill(
-                        gameState = gameState,
-                        modifier = Modifier.align(Alignment.BottomStart)
-                    )
-
-                    // Play / Detail Icon Aksentuasi
-                    Surface(
-                        shape = CircleShape,
-                        color = if (isInstalled) Color(0xFF22C55E) else MaterialTheme.colorScheme.primary,
-                        modifier = Modifier
-                            .size(34.dp)
-                            .align(Alignment.BottomEnd)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.Default.PlayArrow,
-                                contentDescription = "Open ${game.title}",
-                                tint = Color(0xFF061018),
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                    }
-                }
             }
 
-            // Detail Game & Smart Compatibility Badge
-            Column(
-                modifier = Modifier.padding(14.dp)
+            // Pojok Kanan Atas: Floating Badge Platform (PSP, PS2, PC, PS3)
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = Color(0xD90B0B0E),
+                border = BorderStroke(1.dp, platformColor.copy(alpha = 0.85f)),
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(10.dp)
             ) {
+                Text(
+                    text = game.platform.displayName,
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontWeight = FontWeight.ExtraBold,
+                        letterSpacing = 0.8.sp
+                    ),
+                    color = platformColor,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                )
+            }
+
+            // Bagian Bawah Poster: Info Judul, Ukuran File, Status Unduhan & Kompatibilitas
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .fillMaxWidth()
+                    .padding(12.dp)
+            ) {
+                // Status Pill jika sedang diunduh atau sudah terinstal
+                if (gameState !is GameState.NotInstalled) {
+                    PosterInstallBadge(gameState = gameState)
+                    Spacer(modifier = Modifier.height(6.dp))
+                }
+
                 Text(
                     text = game.title,
                     style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.ExtraBold,
+                        lineHeight = 18.sp
                     ),
-                    color = Color(0xFFF8FAFC),
-                    maxLines = 1,
+                    color = Color.White,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
 
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(6.dp))
 
-                Text(
-                    text = "Min RAM: ${game.minRamGb} GB • ${game.targetEmulator.displayName}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color(0xFF94A3B8),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = game.fileSizeLabel,
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.Bold
+                        ),
+                        color = NexusPalette.SecondaryPurple
+                    )
 
-                Spacer(modifier = Modifier.height(12.dp))
-
-                CompatibilityBadge(tier = compatibilityTier)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(6.dp)
+                                .clip(CircleShape)
+                                .background(compatibilityTier.badgeColor)
+                        )
+                        Text(
+                            text = when (compatibilityTier) {
+                                CompatibilityTier.VERIFIED_60FPS -> "60 FPS"
+                                CompatibilityTier.PLAYABLE_TWEAKED -> "30-45 FPS"
+                                CompatibilityTier.UNSUPPORTED -> "Low Spec"
+                            },
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.Bold
+                            ),
+                            color = compatibilityTier.badgeColor
+                        )
+                    }
+                }
             }
         }
     }
 }
 
 @Composable
-private fun InstallStatusPill(
-    gameState: GameState,
-    modifier: Modifier = Modifier
-) {
-    val (label, textColor, bgColor) = when (gameState) {
-        is GameState.NotInstalled -> Triple("Belum Diinstal", Color(0xFFCBD5E1), Color(0xCC090D16))
+private fun PosterInstallBadge(gameState: GameState) {
+    val (text, color) = when (gameState) {
         is GameState.Downloading -> {
             val pct = (gameState.progress * 100).toInt().coerceIn(0, 100)
-            Triple("Mengunduh $pct%", Color(0xFF00E5FF), Color(0xDD090D16))
+            "Downloading $pct%" to NexusPalette.SecondaryPurple
         }
-        is GameState.Extracting -> Triple("Mengekstrak...", Color(0xFFFACC15), Color(0xDD090D16))
-        is GameState.Installed -> Triple("READY TO PLAY", Color(0xFF22C55E), Color(0xDD052E16))
+        is GameState.Extracting -> "Optimizing..." to Color(0xFFFACC15)
+        is GameState.Installed -> "✓ INSTALLED" to Color(0xFF22C55E)
+        is GameState.NotInstalled -> "" to Color.Transparent
     }
 
     Surface(
-        modifier = modifier,
         shape = RoundedCornerShape(6.dp),
-        color = bgColor
+        color = Color(0xDD0B0B0E),
+        border = BorderStroke(1.dp, color.copy(alpha = 0.7f))
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelSmall.copy(
+                fontWeight = FontWeight.ExtraBold
+            ),
+            color = color,
+            modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
+        )
+    }
+}
+
+@Composable
+private fun SectionTabBanner(
+    tab: NexusBottomTab,
+    itemCount: Int
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = NexusPalette.SurfaceCard,
+        border = BorderStroke(1.dp, NexusPalette.CardBorder)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Text(
+                    text = when (tab) {
+                        NexusBottomTab.FAVORITES -> "Favorite Games"
+                        NexusBottomTab.LIBRARY -> "Downloads & Local Library"
+                        else -> tab.label
+                    },
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.ExtraBold
+                    ),
+                    color = Color.White
+                )
+                Text(
+                    text = when (tab) {
+                        NexusBottomTab.FAVORITES -> "Koleksi game pilihan yang kamu tandai"
+                        NexusBottomTab.LIBRARY -> "Tersimpan di /games/[platform]/ & siap dimainkan"
+                        else -> ""
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = NexusPalette.TextSecondary
+                )
+            }
+
+            Surface(
+                shape = RoundedCornerShape(50),
+                color = NexusPalette.ElevatedBackground,
+                border = BorderStroke(1.dp, NexusPalette.PrimaryViolet.copy(alpha = 0.5f))
+            ) {
+                Text(
+                    text = "$itemCount Games",
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        fontWeight = FontWeight.Bold
+                    ),
+                    color = NexusPalette.SecondaryPurple,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmptyTabPlaceholder(
+    tab: NexusBottomTab,
+    onExploreCatalog: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier.fillMaxWidth(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(32.dp)
+        ) {
+            Text(
+                text = if (tab == NexusBottomTab.FAVORITES) "Belum Ada Game Favorit" else "Library Masih Kosong",
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontWeight = FontWeight.ExtraBold
+                ),
+                color = Color.White
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = if (tab == NexusBottomTab.FAVORITES) {
+                    "Ketuk ikon hati pada poster game untuk menyimpannya ke daftar favorit."
+                } else {
+                    "Pilih game dari katalog web lalu ketuk 'Download Langsung ke Nexus' agar tersimpan di perangkat."
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                color = NexusPalette.TextSecondary
+            )
+            Spacer(modifier = Modifier.height(18.dp))
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(50))
+                    .background(brush = NexusPalette.VioletGradient)
+                    .clickable(onClick = onExploreCatalog)
+                    .padding(horizontal = 20.dp, vertical = 11.dp)
+            ) {
+                Text(
+                    text = "Jelajahi Katalog Game",
+                    style = MaterialTheme.typography.labelLarge.copy(
+                        fontWeight = FontWeight.Bold
+                    ),
+                    color = Color.White
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsTabContent(
+    hardwareSpec: HardwareSpec,
+    installedCount: Int,
+    modifier: Modifier = Modifier
+) {
+    var turnipCustomDriver by remember {
+        mutableStateOf(hardwareSpec.gpuModel.contains("adreno", ignoreCase = true))
+    }
+    var asyncShaderCache by remember { mutableStateOf(true) }
+    var sustainedThermalMode by remember { mutableStateOf(true) }
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState())
+            .padding(bottom = 110.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        // Kartu Profil Hardware Terdeteksi
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            color = NexusPalette.SurfaceCard,
+            border = BorderStroke(1.dp, NexusPalette.CardBorder)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "Hardware Profiler Diagnostics",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.ExtraBold
+                    ),
+                    color = Color.White
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                SettingInfoRow("SoC / Chipset", hardwareSpec.socModel)
+                SettingInfoRow("GPU Renderer", hardwareSpec.gpuModel)
+                SettingInfoRow("System Memory (RAM)", "${hardwareSpec.totalRamGb} GB")
+                SettingInfoRow("Graphics API", hardwareSpec.vulkanVersion)
+                SettingInfoRow("Installed ROMs", "$installedCount Games (/games/[platform]/)")
+            }
+        }
+
+        // Kartu Pengaturan Driver Turnip & Engine
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            color = NexusPalette.SurfaceCard,
+            border = BorderStroke(1.dp, NexusPalette.CardBorder)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "Driver & Auto-Tuning Engine",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.ExtraBold
+                    ),
+                    color = Color.White
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+
+                SettingToggleRow(
+                    title = "Mesa Turnip v24.2.0 Custom Driver",
+                    subtitle = "Gunakan driver Vulkan kustom untuk GPU Adreno",
+                    checked = turnipCustomDriver,
+                    onCheckedChange = { turnipCustomDriver = it }
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                SettingToggleRow(
+                    title = "DXVK 2.3.1 Async Shader Pipeline",
+                    subtitle = "Eliminasi stutter kompilasi shader pada game PC & PS3",
+                    checked = asyncShaderCache,
+                    onCheckedChange = { asyncShaderCache = it }
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                SettingToggleRow(
+                    title = "Smart Thermal Frame Pacing",
+                    subtitle = "Jaga suhu perangkat tetap stabil pada sesi bermain panjang",
+                    checked = sustainedThermalMode,
+                    onCheckedChange = { sustainedThermalMode = it }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingInfoRow(label: String, value: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Text(
             text = label,
-            style = MaterialTheme.typography.labelSmall.copy(
+            style = MaterialTheme.typography.bodyMedium,
+            color = NexusPalette.TextSecondary
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium.copy(
                 fontWeight = FontWeight.Bold
             ),
-            color = textColor,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+            color = Color.White
+        )
+    }
+}
+
+@Composable
+private fun SettingToggleRow(
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.labelLarge.copy(
+                    fontWeight = FontWeight.Bold
+                ),
+                color = Color.White
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.labelSmall,
+                color = NexusPalette.TextSecondary
+            )
+        }
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = Color.White,
+                checkedTrackColor = NexusPalette.PrimaryViolet,
+                uncheckedThumbColor = NexusPalette.TextSecondary,
+                uncheckedTrackColor = NexusPalette.ElevatedBackground
+            )
         )
     }
 }
@@ -663,11 +1195,11 @@ fun CompatibilityBadge(
 
 @Preview(
     showBackground = true,
-    widthDp = 900,
-    heightDp = 480
+    widthDp = 412,
+    heightDp = 892
 )
 @Composable
-fun DashboardScreenPreview() {
+fun DashboardScreenPortraitPreview() {
     NexusDeckTheme {
         DashboardScreen(
             hardwareSpec = HardwareSpec(

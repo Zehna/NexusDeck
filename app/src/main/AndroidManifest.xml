@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Network Permission for Coil Box Art Loader -->
+    <!-- Network Permission for Live Web Game Catalog, Direct Download & Coil Box Art -->
     <uses-permission android:name="android.permission.INTERNET" />
 
     <!-- Storage Permissions (Android 13+ Granular Media & Legacy Compatibility) -->
@@ -13,6 +13,7 @@
 
     <!-- Package Visibility Queries for Target Emulators (Android 11+ / SDK 35) -->
     <queries>
+        <package android:name="org.ppsspp.ppsspp" />
         <package android:name="come.nanodata.armsx2" />
         <package android:name="com.armsx3.play" />
         <package android:name="app.gamenative" />
@@ -28,7 +29,8 @@
             android:name=".MainActivity"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode"
             android:exported="true"
-            android:screenOrientation="sensorLandscape"
+            android:screenOrientation="portrait"
+            android:windowSoftInputMode="adjustResize"
             android:theme="@style/Theme.NexusDeck">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

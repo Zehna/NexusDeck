@@ -31,6 +31,11 @@ object GameLauncher {
 
     private fun getEmulatorConfig(targetEmulator: TargetEmulator): EmulatorConfig {
         return when (targetEmulator) {
+            TargetEmulator.PPSSPP -> EmulatorConfig(
+                emulatorName = "PPSSPP",
+                packageName = "org.ppsspp.ppsspp",
+                downloadUrl = "https://www.ppsspp.org/download/"
+            )
             TargetEmulator.ARMSX2 -> EmulatorConfig(
                 emulatorName = "ARMSX2",
                 packageName = "come.nanodata.armsx2",
@@ -96,7 +101,6 @@ object GameLauncher {
                 context.startActivity(viewIntent)
                 LauncherResult.Launched
             } else {
-                // Fallback ke launch intent utama emulator dengan membawa extra path & EngineConfig
                 val fallbackIntent =
                     context.packageManager.getLaunchIntentForPackage(config.packageName)?.apply {
                         applyLaunchExtras(game, romPath, engineConfig, autoTuneEnabled)

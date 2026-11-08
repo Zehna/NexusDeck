@@ -1,5 +1,7 @@
 package com.nexusdeck.app.ui
 
+import android.app.Activity
+import android.content.pm.ActivityInfo
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
@@ -13,7 +15,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -23,6 +24,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -43,9 +45,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.nexusdeck.app.core.model.EngineConfig
 import com.nexusdeck.app.core.model.GameItem
-import com.nexusdeck.app.core.model.GamePlatform
+import com.nexusdeck.app.ui.components.platformBadgeColor
 import com.nexusdeck.app.ui.controls.VirtualGamepad
 import com.nexusdeck.app.ui.controls.VirtualGamepadButton
+import com.nexusdeck.app.ui.theme.NexusPalette
 import java.util.Locale
 
 private data class ActionPulseEffect(
@@ -66,12 +69,20 @@ fun InAppGameScreen(
 ) {
     val context = LocalContext.current
 
+    // Otomatis kunci ke Sensor Landscape saat sesi permainan aktif, dan kembalikan ke Portrait saat keluar
+    DisposableEffect(context) {
+        val activity = context as? Activity
+        activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        onDispose {
+            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        }
+    }
+
     var joystickX by remember { mutableFloatStateOf(0f) }
     var joystickY by remember { mutableFloatStateOf(0f) }
     val pressedButtons = remember { mutableStateListOf<VirtualGamepadButton>() }
     val pulseEffects = remember { mutableStateListOf<ActionPulseEffect>() }
 
-    // Posisi avatar/objek simulasi di kanvas (0.1f .. 0.9f)
     var playerNormX by remember { mutableFloatStateOf(0.5f) }
     var playerNormY by remember { mutableFloatStateOf(0.54f) }
     var gridScrollPhase by remember { mutableFloatStateOf(0f) }
@@ -82,7 +93,6 @@ fun InAppGameScreen(
         showExitDialog = true
     }
 
-    // Loop Simulasi Frame Rendering 60 FPS
     LaunchedEffect(showExitDialog) {
         var lastFrameTimeNanos = 0L
         var frameCounter = 0
@@ -98,7 +108,6 @@ fun InAppGameScreen(
                     .coerceIn(0.001f, 0.05f)
                 lastFrameTimeNanos = frameTimeNanos
 
-                // Hitung FPS riil kanvas
                 frameCounter++
                 if (frameTimeNanos - fpsWindowStartNanos >= 500_000_000L) {
                     val elapsedSec = (frameTimeNanos - fpsWindowStartNanos) / 1_000_000_000f
@@ -107,7 +116,6 @@ fun InAppGameScreen(
                     fpsWindowStartNanos = frameTimeNanos
                 }
 
-                // Update posisi objek berdasarkan arah Virtual Analog Stick
                 val speedMultiplier =
                     if (pressedButtons.contains(VirtualGamepadButton.R1)) 0.58f else 0.34f
                 playerNormX = (playerNormX + joystickX * speedMultiplier * deltaSec)
@@ -115,10 +123,8 @@ fun InAppGameScreen(
                 playerNormY = (playerNormY + joystickY * speedMultiplier * deltaSec)
                     .coerceIn(0.22f, 0.82f)
 
-                // Animasi scrolling perspektif lantai arena 60 FPS
                 gridScrollPhase = (gridScrollPhase + deltaSec * 1.4f) % 1f
 
-                // Update gelombang efek tombol aksi (A/B/X/Y/L1/R1)
                 val updatedPulses = pulseEffects.mapNotNull { pulse ->
                     val nextProgress = pulse.radiusProgress + deltaSec * 1.8f
                     if (nextProgress < 1f) pulse.copy(radiusProgress = nextProgress) else null
@@ -129,16 +135,12 @@ fun InAppGameScreen(
         }
     }
 
-    val platformAccent = when (game.platform) {
-        GamePlatform.PC -> Color(0xFF00E5FF)
-        GamePlatform.PS2 -> Color(0xFF3B82F6)
-        GamePlatform.PS3 -> Color(0xFFA855F7)
-    }
+    val platformAccent = platformBadgeColor(game.platform)
 
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Color(0xFF050811))
+            .background(NexusPalette.DeepDarkBlack)
     ) {
         // 1. Background Canvas: Simulasi Frame Rendering Game 60 FPS Interaktif
         Canvas(modifier = Modifier.fillMaxSize()) {
@@ -146,45 +148,41 @@ fun InAppGameScreen(
             val h = size.height
             val horizonY = h * 0.36f
 
-            // Langit / Atmosfer Latar Game
             drawRect(
                 brush = Brush.verticalGradient(
                     colors = listOf(
-                        Color(0xFF060B16),
-                        platformAccent.copy(alpha = 0.18f),
-                        Color(0xFF050811)
+                        NexusPalette.DeepDarkBlack,
+                        platformAccent.copy(alpha = 0.22f),
+                        NexusPalette.DeepDarkBlack
                     )
                 )
             )
 
-            // Garis Horizon Neon
             drawLine(
-                color = platformAccent.copy(alpha = 0.55f),
+                color = platformAccent.copy(alpha = 0.6f),
                 start = Offset(0f, horizonY),
                 end = Offset(w, horizonY),
                 strokeWidth = 2.dp.toPx()
             )
 
-            // Garis Perspektif Vertikal (3D Synth Grid)
             val verticalLines = 14
             for (i in -verticalLines..verticalLines) {
                 val topX = w * 0.5f + (i * w * 0.025f) - (joystickX * w * 0.04f)
                 val bottomX = w * 0.5f + (i * w * 0.11f) - (joystickX * w * 0.12f)
                 drawLine(
-                    color = platformAccent.copy(alpha = 0.16f),
+                    color = platformAccent.copy(alpha = 0.18f),
                     start = Offset(topX, horizonY),
                     end = Offset(bottomX, h),
                     strokeWidth = 1.2.dp.toPx()
                 )
             }
 
-            // Garis Horizontal Mengalir 60 FPS
             val horizontalSteps = 8
             for (step in 0 until horizontalSteps) {
                 val norm = ((step + gridScrollPhase) / horizontalSteps.toFloat()).coerceIn(0f, 1f)
                 val yPos = horizonY + (h - horizonY) * (norm * norm)
                 drawLine(
-                    color = platformAccent.copy(alpha = 0.22f * norm),
+                    color = platformAccent.copy(alpha = 0.24f * norm),
                     start = Offset(0f, yPos),
                     end = Offset(w, yPos),
                     strokeWidth = 1.5.dp.toPx()
@@ -193,22 +191,20 @@ fun InAppGameScreen(
 
             val playerCenter = Offset(w * playerNormX, h * playerNormY)
 
-            // Efek Pulse saat tombol A/B/X/Y/L1/R1 ditekan
             pulseEffects.forEach { pulse ->
                 val center = Offset(w * pulse.xNorm, h * pulse.yNorm)
                 drawCircle(
-                    color = pulse.color.copy(alpha = (1f - pulse.radiusProgress) * 0.75f),
+                    color = pulse.color.copy(alpha = (1f - pulse.radiusProgress) * 0.78f),
                     radius = (28.dp.toPx()) + (130.dp.toPx() * pulse.radiusProgress),
                     center = center,
                     style = Stroke(width = 3.dp.toPx())
                 )
             }
 
-            // Aura & Objek Utama Game yang dikendalikan oleh Virtual Analog Stick
             drawCircle(
                 brush = Brush.radialGradient(
                     colors = listOf(
-                        platformAccent.copy(alpha = 0.45f),
+                        platformAccent.copy(alpha = 0.5f),
                         Color.Transparent
                     ),
                     center = playerCenter,
@@ -219,7 +215,7 @@ fun InAppGameScreen(
             )
 
             drawCircle(
-                color = Color(0xFF090D16),
+                color = NexusPalette.DeepDarkBlack,
                 radius = 22.dp.toPx(),
                 center = playerCenter
             )
@@ -231,10 +227,9 @@ fun InAppGameScreen(
                 style = Stroke(width = 3.dp.toPx())
             )
 
-            // Indikator vektor arah gerak
             if (joystickX != 0f || joystickY != 0f) {
                 drawLine(
-                    color = Color(0xFFFFFFFF),
+                    color = Color.White,
                     start = playerCenter,
                     end = Offset(
                         playerCenter.x + joystickX * 42.dp.toPx(),
@@ -250,9 +245,9 @@ fun InAppGameScreen(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .padding(top = 68.dp),
-            shape = RoundedCornerShape(12.dp),
-            color = Color(0x99090D16),
-            border = BorderStroke(1.dp, Color(0xFF1E293B))
+            shape = RoundedCornerShape(14.dp),
+            color = NexusPalette.ElevatedBackground.copy(alpha = 0.85f),
+            border = BorderStroke(1.dp, NexusPalette.CardBorder)
         ) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -263,11 +258,11 @@ fun InAppGameScreen(
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Text(
-                        text = game.title,
+                        text = "${game.title} (${game.platform.displayName})",
                         style = MaterialTheme.typography.labelLarge.copy(
                             fontWeight = FontWeight.ExtraBold
                         ),
-                        color = Color(0xFFF8FAFC)
+                        color = Color.White
                     )
                     Text(
                         text = "• $currentFps FPS",
@@ -279,7 +274,7 @@ fun InAppGameScreen(
                     Text(
                         text = "• ${engineConfig.rendererBackend} (${engineConfig.targetResolution})",
                         style = MaterialTheme.typography.labelSmall,
-                        color = Color(0xFF94A3B8)
+                        color = NexusPalette.TextSecondary
                     )
                 }
 
@@ -296,7 +291,7 @@ fun InAppGameScreen(
                 Text(
                     text = "Stick X: $formattedX  Y: $formattedY   |   Input: $activeBtns",
                     style = MaterialTheme.typography.labelSmall,
-                    color = Color(0xFF00E5FF)
+                    color = NexusPalette.SecondaryPurple
                 )
             }
         }
@@ -335,9 +330,9 @@ fun InAppGameScreen(
     if (showExitDialog) {
         AlertDialog(
             onDismissRequest = { showExitDialog = false },
-            containerColor = Color(0xFF111827),
-            titleContentColor = Color(0xFFF8FAFC),
-            textContentColor = Color(0xFFCBD5E1),
+            containerColor = NexusPalette.SurfaceCard,
+            titleContentColor = Color.White,
+            textContentColor = NexusPalette.TextSecondary,
             title = {
                 Text(
                     text = "Pause Session — ${game.title}",
@@ -349,12 +344,13 @@ fun InAppGameScreen(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(
-                        text = "Keluar dari game dan simpan state?"
+                        text = "Keluar dari game dan simpan state?",
+                        color = Color.White
                     )
                     Text(
-                        text = "Save State & profil ${engineConfig.driverName} akan disimpan otomatis.",
+                        text = "ROM: $romPath\nDriver: ${engineConfig.driverName}",
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF94A3B8)
+                        color = NexusPalette.TextSecondary
                     )
                 }
             },
@@ -370,8 +366,8 @@ fun InAppGameScreen(
                         onExitToDashboard()
                     },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF22C55E),
-                        contentColor = Color(0xFF052E16)
+                        containerColor = NexusPalette.PrimaryViolet,
+                        contentColor = Color.White
                     )
                 ) {
                     Text(
@@ -389,8 +385,8 @@ fun InAppGameScreen(
                         }
                     ) {
                         Text(
-                            text = "Emulator Eksternal",
-                            color = Color(0xFF00E5FF)
+                            text = "Buka ${game.targetEmulator.displayName}",
+                            color = NexusPalette.SecondaryPurple
                         )
                     }
                     TextButton(
@@ -398,7 +394,7 @@ fun InAppGameScreen(
                     ) {
                         Text(
                             text = "Lanjut Main",
-                            color = Color(0xFFE2E8F0)
+                            color = Color.White
                         )
                     }
                 }

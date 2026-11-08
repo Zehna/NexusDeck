@@ -5,6 +5,8 @@ import android.net.Uri
 import android.view.KeyEvent
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,12 +17,17 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -63,6 +70,8 @@ import com.nexusdeck.app.core.model.GameState
 import com.nexusdeck.app.core.model.HardwareSpec
 import com.nexusdeck.app.core.optimizer.AutoTuningEngine
 import com.nexusdeck.app.ui.components.GameCoverArt
+import com.nexusdeck.app.ui.components.platformBadgeColor
+import com.nexusdeck.app.ui.theme.NexusPalette
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -71,6 +80,8 @@ fun GameDetailBottomSheet(
     hardwareSpec: HardwareSpec,
     compatibilityTier: CompatibilityTier,
     gameState: GameState,
+    isFavorite: Boolean,
+    onToggleFavorite: () -> Unit,
     onInstallClick: () -> Unit,
     onPlayInAppClick: (romPath: String, engineConfig: EngineConfig, autoTuneActive: Boolean) -> Unit,
     onLaunchExternalClick: (romPath: String, engineConfig: EngineConfig, autoTuneActive: Boolean) -> Unit,
@@ -86,19 +97,14 @@ fun GameDetailBottomSheet(
         AutoTuningEngine.generateStockConfig(game)
     }
     val activeEngineConfig = if (autoTuneActive) optimalConfig else stockConfig
-
-    val platformAccent = when (game.platform) {
-        GamePlatform.PC -> Color(0xFF00E5FF)
-        GamePlatform.PS2 -> Color(0xFF3B82F6)
-        GamePlatform.PS3 -> Color(0xFFA855F7)
-    }
+    val platformAccent = platformBadgeColor(game.platform)
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = Color(0xFF111827),
-        contentColor = Color(0xFFF8FAFC),
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+        containerColor = NexusPalette.ElevatedBackground,
+        contentColor = NexusPalette.TextPrimary,
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
     ) {
         Column(
             modifier = Modifier
@@ -135,19 +141,20 @@ fun GameDetailBottomSheet(
                     }
                 }
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp)
+                .padding(horizontal = 20.dp)
                 .padding(bottom = 28.dp)
         ) {
+            // Header Poster + Info Utama ala FullRoid
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(20.dp),
-                verticalAlignment = Alignment.CenterVertically
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.Top
             ) {
-                // Cover Visual Artwork Card dengan Coil + Offline Fallback
+                // Poster Vertikal Box Art
                 Box(
                     modifier = Modifier
-                        .width(180.dp)
-                        .height(112.dp)
+                        .width(108.dp)
+                        .height(150.dp)
                         .clip(RoundedCornerShape(16.dp))
                 ) {
                     GameCoverArt(
@@ -157,45 +164,26 @@ fun GameDetailBottomSheet(
                         modifier = Modifier.matchParentSize()
                     )
 
-                    Box(
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xCC0B0B0E),
+                        border = BorderStroke(1.dp, platformAccent.copy(alpha = 0.8f)),
                         modifier = Modifier
-                            .matchParentSize()
-                            .padding(12.dp)
+                            .align(Alignment.TopEnd)
+                            .padding(8.dp)
                     ) {
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = Color(0xCC090D16),
-                            border = BorderStroke(1.dp, platformAccent.copy(alpha = 0.8f)),
-                            modifier = Modifier.align(Alignment.TopStart)
-                        ) {
-                            Text(
-                                text = game.platform.displayName,
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    fontWeight = FontWeight.ExtraBold
-                                ),
-                                color = platformAccent,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                            )
-                        }
-
-                        Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = Color(0xCC090D16),
-                            modifier = Modifier.align(Alignment.BottomStart)
-                        ) {
-                            Text(
-                                text = game.targetEmulator.displayName,
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    fontWeight = FontWeight.Bold
-                                ),
-                                color = Color(0xFFE2E8F0),
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                            )
-                        }
+                        Text(
+                            text = game.platform.displayName,
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.ExtraBold
+                            ),
+                            color = platformAccent,
+                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                        )
                     }
                 }
 
-                // Judul Game, Metadata, dan Status Kompatibilitas
+                // Detail Judul, Ukuran File Asli, Core Emulator, & Favorit
                 Column(
                     modifier = Modifier.weight(1f)
                 ) {
@@ -204,29 +192,86 @@ fun GameDetailBottomSheet(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.Top
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = game.title,
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                fontWeight = FontWeight.ExtraBold
+                            ),
+                            color = Color.White,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+
+                        Row {
+                            IconButton(
+                                onClick = onToggleFavorite,
+                                modifier = Modifier.size(34.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                                    contentDescription = "Favorite",
+                                    tint = if (isFavorite) Color(0xFFEC4899) else NexusPalette.TextSecondary
+                                )
+                            }
+                            IconButton(
+                                onClick = onDismiss,
+                                modifier = Modifier.size(34.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Tutup",
+                                    tint = NexusPalette.TextSecondary
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Pills: Ukuran File Asli, Core Emulator, & Min RAM
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = NexusPalette.SurfaceCard,
+                            border = BorderStroke(1.dp, NexusPalette.CardBorder)
+                        ) {
                             Text(
-                                text = game.title,
-                                style = MaterialTheme.typography.headlineSmall.copy(
-                                    fontWeight = FontWeight.ExtraBold
+                                text = "📦 ${game.fileSizeLabel}",
+                                style = MaterialTheme.typography.labelMedium.copy(
+                                    fontWeight = FontWeight.Bold
                                 ),
-                                color = Color(0xFFF8FAFC),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = "Emulator: ${game.targetEmulator.displayName} • Min RAM: ${game.minRamGb} GB",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = Color(0xFF94A3B8)
+                                color = NexusPalette.SecondaryPurple,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                             )
                         }
 
-                        IconButton(onClick = onDismiss) {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "Tutup (Tombol B)",
-                                tint = Color(0xFF94A3B8)
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = NexusPalette.SurfaceCard,
+                            border = BorderStroke(1.dp, NexusPalette.CardBorder)
+                        ) {
+                            Text(
+                                text = game.targetEmulator.displayName,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = NexusPalette.TextPrimary,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = NexusPalette.SurfaceCard,
+                            border = BorderStroke(1.dp, NexusPalette.CardBorder)
+                        ) {
+                            Text(
+                                text = "${game.minRamGb}GB RAM",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = NexusPalette.TextSecondary,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                             )
                         }
                     }
@@ -237,7 +282,7 @@ fun GameDetailBottomSheet(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(18.dp))
 
             // Kartu Panel Konsol: ⚡ Auto-Tuning Profile
             AutoTuningProfilePanel(
@@ -250,10 +295,10 @@ fun GameDetailBottomSheet(
 
             Spacer(modifier = Modifier.height(18.dp))
 
-            // Area Tombol Aksi Dinamis berdasarkan GameState
+            // Area Tombol Aksi Dinamis (One-Click Direct Web Download / Play)
             GameActionSection(
+                game = game,
                 gameState = gameState,
-                emulatorName = game.targetEmulator.displayName,
                 onInstallClick = onInstallClick,
                 onPlayInAppClick = { romPath ->
                     onPlayInAppClick(romPath, activeEngineConfig, autoTuneActive)
@@ -278,10 +323,10 @@ private fun AutoTuningProfilePanel(
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        color = Color(0xFF0B1322),
+        color = NexusPalette.SurfaceCard,
         border = BorderStroke(
             width = 1.dp,
-            color = if (autoTuneActive) Color(0xFF00E5FF).copy(alpha = 0.45f) else Color(0xFF23304A)
+            color = if (autoTuneActive) NexusPalette.PrimaryViolet.copy(alpha = 0.65f) else NexusPalette.CardBorder
         )
     ) {
         Column(
@@ -292,39 +337,33 @@ private fun AutoTuningProfilePanel(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                Text(
+                    text = "⚡ Auto-Tuning Profile",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.ExtraBold
+                    ),
+                    color = Color.White
+                )
+
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
-                        text = "⚡ Auto-Tuning Profile",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.ExtraBold,
-                            letterSpacing = 0.5.sp
-                        ),
-                        color = Color(0xFFF8FAFC)
-                    )
-                }
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Text(
-                        text = "Auto-Tune Active",
+                        text = if (autoTuneActive) "Active" else "Off",
                         style = MaterialTheme.typography.labelMedium.copy(
-                            fontWeight = FontWeight.SemiBold
+                            fontWeight = FontWeight.Bold
                         ),
-                        color = if (autoTuneActive) Color(0xFF00E5FF) else Color(0xFF94A3B8)
+                        color = if (autoTuneActive) NexusPalette.SecondaryPurple else NexusPalette.TextSecondary
                     )
                     Switch(
                         checked = autoTuneActive,
                         onCheckedChange = onAutoTuneToggle,
                         colors = SwitchDefaults.colors(
-                            checkedThumbColor = Color(0xFF061018),
-                            checkedTrackColor = Color(0xFF00E5FF),
-                            uncheckedThumbColor = Color(0xFF94A3B8),
-                            uncheckedTrackColor = Color(0xFF1E293B)
+                            checkedThumbColor = Color.White,
+                            checkedTrackColor = NexusPalette.PrimaryViolet,
+                            uncheckedThumbColor = NexusPalette.TextSecondary,
+                            uncheckedTrackColor = NexusPalette.ElevatedBackground
                         )
                     )
                 }
@@ -366,7 +405,7 @@ private fun AutoTuningProfilePanel(
                 )
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
             Text(
                 text = if (autoTuneActive) {
@@ -374,10 +413,10 @@ private fun AutoTuningProfilePanel(
                 } else {
                     "• Auto-Tune dinonaktifkan. Menggunakan profil standar bawaan emulator."
                 },
-                style = MaterialTheme.typography.bodySmall.copy(
+                style = MaterialTheme.typography.labelMedium.copy(
                     fontWeight = FontWeight.SemiBold
                 ),
-                color = if (autoTuneActive) Color(0xFF22C55E) else Color(0xFF94A3B8)
+                color = if (autoTuneActive) Color(0xFF22C55E) else NexusPalette.TextSecondary
             )
         }
     }
@@ -391,10 +430,10 @@ private fun TuningParamChip(
 ) {
     Surface(
         shape = RoundedCornerShape(10.dp),
-        color = Color(0xFF162238),
+        color = NexusPalette.ElevatedBackground,
         border = BorderStroke(
             width = 1.dp,
-            color = if (highlighted) Color(0xFF2A3F66) else Color(0xFF1E293B)
+            color = if (highlighted) NexusPalette.PrimaryViolet.copy(alpha = 0.4f) else NexusPalette.CardBorder
         )
     ) {
         Row(
@@ -404,14 +443,14 @@ private fun TuningParamChip(
             Text(
                 text = "$label: ",
                 style = MaterialTheme.typography.labelSmall,
-                color = Color(0xFF94A3B8)
+                color = NexusPalette.TextSecondary
             )
             Text(
                 text = value,
                 style = MaterialTheme.typography.labelSmall.copy(
                     fontWeight = FontWeight.Bold
                 ),
-                color = if (highlighted) Color(0xFFE2E8F0) else Color(0xFF94A3B8)
+                color = if (highlighted) Color.White else NexusPalette.TextSecondary
             )
         }
     }
@@ -419,32 +458,42 @@ private fun TuningParamChip(
 
 @Composable
 private fun GameActionSection(
+    game: GameItem,
     gameState: GameState,
-    emulatorName: String,
     onInstallClick: () -> Unit,
     onPlayInAppClick: (romPath: String) -> Unit,
     onLaunchExternalClick: (romPath: String) -> Unit
 ) {
+    val platformFolder = "/games/${game.platform.name.lowercase()}/"
+
     when (gameState) {
         is GameState.NotInstalled -> {
-            Button(
-                onClick = onInstallClick,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(54.dp),
-                shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF00E5FF),
-                    contentColor = Color(0xFF061018)
-                )
-            ) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    text = "Download & Install  [A / ✕]",
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.ExtraBold,
-                        letterSpacing = 0.8.sp
-                    )
+                    text = "Target Direktori: $platformFolder • Ukuran Paket: ${game.fileSizeLabel}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = NexusPalette.TextSecondary
                 )
+
+                // Tombol Gradasi Ungu: [Download Langsung ke Nexus]
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(54.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(brush = NexusPalette.VioletGradient)
+                        .clickable(onClick = onInstallClick),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "Download Langsung ke Nexus (${game.fileSizeLabel})",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.ExtraBold,
+                            letterSpacing = 0.4.sp
+                        ),
+                        color = Color.White
+                    )
+                }
             }
         }
 
@@ -452,9 +501,9 @@ private fun GameActionSection(
             val percent = (gameState.progress * 100).toInt().coerceIn(0, 100)
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp),
-                color = Color(0xFF1E293B),
-                border = BorderStroke(1.dp, Color(0xFF334155))
+                shape = RoundedCornerShape(16.dp),
+                color = NexusPalette.SurfaceCard,
+                border = BorderStroke(1.dp, NexusPalette.CardBorder)
             ) {
                 Column(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)
@@ -465,18 +514,18 @@ private fun GameActionSection(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Mengunduh...",
+                            text = "Mengunduh ke $platformFolder...",
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 fontWeight = FontWeight.SemiBold
                             ),
-                            color = Color(0xFFE2E8F0)
+                            color = Color.White
                         )
                         Text(
                             text = "$percent%",
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 fontWeight = FontWeight.ExtraBold
                             ),
-                            color = Color(0xFF00E5FF)
+                            color = NexusPalette.SecondaryPurple
                         )
                     }
                     Spacer(modifier = Modifier.height(10.dp))
@@ -486,8 +535,8 @@ private fun GameActionSection(
                             .fillMaxWidth()
                             .height(8.dp)
                             .clip(RoundedCornerShape(50)),
-                        color = Color(0xFF00E5FF),
-                        trackColor = Color(0xFF0F172A)
+                        color = NexusPalette.PrimaryViolet,
+                        trackColor = NexusPalette.DeepDarkBlack
                     )
                 }
             }
@@ -496,9 +545,9 @@ private fun GameActionSection(
         is GameState.Extracting -> {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp),
-                color = Color(0xFF1E293B),
-                border = BorderStroke(1.dp, Color(0xFF334155))
+                shape = RoundedCornerShape(16.dp),
+                color = NexusPalette.SurfaceCard,
+                border = BorderStroke(1.dp, NexusPalette.CardBorder)
             ) {
                 Column(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)
@@ -509,18 +558,18 @@ private fun GameActionSection(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Mengekstrak file game...",
+                            text = "Menyimpan & mengoptimasi di $platformFolder...",
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 fontWeight = FontWeight.SemiBold
                             ),
-                            color = Color(0xFFFDE047)
+                            color = NexusPalette.SecondaryPurple
                         )
                         Text(
-                            text = "Optimizing",
+                            text = "Verifying",
                             style = MaterialTheme.typography.labelMedium.copy(
                                 fontWeight = FontWeight.Bold
                             ),
-                            color = Color(0xFFFDE047)
+                            color = NexusPalette.SecondaryPurple
                         )
                     }
                     Spacer(modifier = Modifier.height(10.dp))
@@ -529,8 +578,8 @@ private fun GameActionSection(
                             .fillMaxWidth()
                             .height(8.dp)
                             .clip(RoundedCornerShape(50)),
-                        color = Color(0xFFFACC15),
-                        trackColor = Color(0xFF0F172A)
+                        color = NexusPalette.SecondaryPurple,
+                        trackColor = NexusPalette.DeepDarkBlack
                     )
                 }
             }
@@ -541,33 +590,39 @@ private fun GameActionSection(
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Text(
-                    text = "ROM Path: ${gameState.romPath}",
+                    text = "✓ Tersimpan di Library: ${gameState.romPath}",
                     style = MaterialTheme.typography.labelSmall,
-                    color = Color(0xFF64748B),
+                    color = Color(0xFF22C55E),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Button(
                         onClick = { onPlayInAppClick(gameState.romPath) },
                         modifier = Modifier
                             .weight(1f)
                             .height(54.dp),
-                        shape = RoundedCornerShape(14.dp),
+                        shape = RoundedCornerShape(16.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xFF22C55E),
                             contentColor = Color(0xFF052E16)
                         )
                     ) {
+                        Icon(
+                            imageVector = Icons.Default.PlayArrow,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "▶ PLAY GAME  [A / ✕]",
+                            text = "PLAY GAME",
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.ExtraBold,
-                                letterSpacing = 1.sp
+                                letterSpacing = 0.8.sp
                             )
                         )
                     }
@@ -575,15 +630,15 @@ private fun GameActionSection(
                     OutlinedButton(
                         onClick = { onLaunchExternalClick(gameState.romPath) },
                         modifier = Modifier.height(54.dp),
-                        shape = RoundedCornerShape(14.dp),
-                        border = BorderStroke(1.dp, Color(0xFF334155))
+                        shape = RoundedCornerShape(16.dp),
+                        border = BorderStroke(1.dp, NexusPalette.CardBorder)
                     ) {
                         Text(
-                            text = "Buka $emulatorName",
+                            text = game.targetEmulator.displayName,
                             style = MaterialTheme.typography.labelLarge.copy(
                                 fontWeight = FontWeight.Bold
                             ),
-                            color = Color(0xFFCBD5E1)
+                            color = NexusPalette.TextPrimary
                         )
                     }
                 }
@@ -601,9 +656,9 @@ fun EmulatorNotFoundDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = Color(0xFF131C2E),
-        titleContentColor = Color(0xFFF8FAFC),
-        textContentColor = Color(0xFFCBD5E1),
+        containerColor = NexusPalette.SurfaceCard,
+        titleContentColor = Color.White,
+        textContentColor = NexusPalette.TextSecondary,
         title = {
             Text(
                 text = "Emulator Belum Terpasang",
@@ -638,8 +693,8 @@ fun EmulatorNotFoundDialog(
                     onDismiss()
                 },
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF00E5FF),
-                    contentColor = Color(0xFF061018)
+                    containerColor = NexusPalette.PrimaryViolet,
+                    contentColor = Color.White
                 )
             ) {
                 Text(
@@ -652,7 +707,7 @@ fun EmulatorNotFoundDialog(
             TextButton(onClick = onDismiss) {
                 Text(
                     text = "Batal",
-                    color = Color(0xFF94A3B8)
+                    color = NexusPalette.TextSecondary
                 )
             }
         }
