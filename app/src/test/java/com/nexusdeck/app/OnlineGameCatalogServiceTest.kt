@@ -53,7 +53,7 @@ class OnlineGameCatalogServiceTest {
     fun testMyrientMirrorSource_nintendoAndPspFiltering() = runBlocking {
         val myrientSource = MyrientMirrorSource()
 
-        val nintendoItems = myrientSource.getPopular(platform = GamePlatform.NINTENDO)
+        val nintendoItems = myrientSource.getPopular(platform = GamePlatform.NINTENDO, page = 1)
         assertTrue("Nintendo items should not be empty", nintendoItems.isNotEmpty())
         assertTrue("All items must be Nintendo platform", nintendoItems.all { it.platform == GamePlatform.NINTENDO })
 

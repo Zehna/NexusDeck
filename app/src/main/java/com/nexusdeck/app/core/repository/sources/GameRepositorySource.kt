@@ -18,7 +18,7 @@ interface GameRepositorySource {
 
     suspend fun getPopular(
         platform: GamePlatform?,
-        page: Int,
+        page: Int = 1,
         limit: Int = 15
     ): List<GameItem>
 }
