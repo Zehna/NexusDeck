@@ -7,6 +7,7 @@ import com.nexusdeck.app.core.achievements.RetroAchievementItem
 import com.nexusdeck.app.core.achievements.RetroAchievementsService
 import com.nexusdeck.app.core.achievements.RetroGameTrophySummary
 import com.nexusdeck.app.core.artwork.UniversalArtworkScraper
+import com.nexusdeck.app.core.bios.BiosManager
 import com.nexusdeck.app.core.downloader.SniffedDownload
 import com.nexusdeck.app.core.downloader.WebAdBlocker
 import com.nexusdeck.app.core.downloader.WebDownloadSniffer
@@ -14,7 +15,9 @@ import com.nexusdeck.app.core.engine.EmulatorJsEngine
 import com.nexusdeck.app.core.engine.EngineDownloadProgress
 import com.nexusdeck.app.core.engine.EngineInfo
 import com.nexusdeck.app.core.engine.EngineManager
+import com.nexusdeck.app.core.engine.ExecutionType
 import com.nexusdeck.app.core.engine.NexusEmbeddedCoreRunner
+import com.nexusdeck.app.core.engine.PlatformExecutionMatrix
 import com.nexusdeck.app.core.engine.VirtualInputState
 import com.nexusdeck.app.core.launcher.GameLauncher
 import com.nexusdeck.app.core.launcher.LauncherResult
@@ -748,7 +751,7 @@ class NexusDeckComprehensiveStressTest {
         assertEquals("nethersx2", EngineManager.getEngineForPlatform(GamePlatform.PS2).id)
         assertEquals("gamenative", EngineManager.getEngineForPlatform(GamePlatform.PC).id)
         assertEquals("lemuroid", EngineManager.getEngineForPlatform(GamePlatform.NINTENDO).id)
-        assertEquals("armsx3", EngineManager.getEngineForPlatform(GamePlatform.PS3).id)
+        assertEquals("aps3e", EngineManager.getEngineForPlatform(GamePlatform.PS3).id)
 
         assertEquals("ppsspp", EngineManager.getEngineForEmulator(TargetEmulator.PPSSPP).id)
         assertEquals("nethersx2", EngineManager.getEngineForEmulator(TargetEmulator.ARMSX2).id)
@@ -756,7 +759,7 @@ class NexusDeckComprehensiveStressTest {
         assertEquals("melonds", EngineManager.getEngineForEmulator(TargetEmulator.MelonDS).id)
         assertEquals("lime3ds", EngineManager.getEngineForEmulator(TargetEmulator.Lime3DS).id)
         assertEquals("sudachi", EngineManager.getEngineForEmulator(TargetEmulator.Sudachi).id)
-        assertEquals("armsx3", EngineManager.getEngineForEmulator(TargetEmulator.ARMSX3).id)
+        assertEquals("aps3e", EngineManager.getEngineForEmulator(TargetEmulator.ARMSX3).id)
         assertEquals("lemuroid", EngineManager.getEngineForEmulator(TargetEmulator.Lemuroid).id)
         assertEquals("lemuroid", EngineManager.getEngineForEmulator(TargetEmulator.NexusRetroCore).id)
     }
@@ -1193,5 +1196,78 @@ class NexusDeckComprehensiveStressTest {
         val netherEngine = EngineManager.netherSx2Engine
         assertEquals("xyz.aethersx2.android", netherEngine.primaryPackageName)
         assertTrue(netherEngine.alternatePackageNames.contains("come.nanodata.armsx2"))
+    }
+
+    @Test
+    fun test51_platformExecutionMatrix_completePoliciesAcrossAllConsoles() {
+        // 1. Nintendo Retro: 100% In-App WASM Player, No BIOS, No Firmware
+        val nintendo = PlatformExecutionMatrix.getRule(GamePlatform.NINTENDO)
+        assertEquals(ExecutionType.IN_APP_WASM, nintendo.executionType)
+        assertTrue(nintendo.isEmbeddedWasm)
+        assertFalse(nintendo.requiresBios)
+        assertFalse(nintendo.requiresFirmware)
+
+        // 2. PSP: Native Engine PPSSPP, No BIOS
+        val psp = PlatformExecutionMatrix.getRule(GamePlatform.PSP)
+        assertEquals(ExecutionType.NATIVE_ENGINE_NO_BIOS, psp.executionType)
+        assertEquals("ppsspp", psp.defaultEngineId)
+        assertFalse(psp.requiresBios)
+
+        // 3. PC: Native Engine GameNative, No BIOS
+        val pc = PlatformExecutionMatrix.getRule(GamePlatform.PC)
+        assertEquals(ExecutionType.NATIVE_ENGINE_NO_BIOS, pc.executionType)
+        assertEquals("gamenative", pc.defaultEngineId)
+        assertFalse(pc.requiresBios)
+
+        // 4. PS2: Native Engine NetherSX2, WAJIB BIOS
+        val ps2 = PlatformExecutionMatrix.getRule(GamePlatform.PS2)
+        assertEquals(ExecutionType.NATIVE_ENGINE_REQUIRES_BIOS, ps2.executionType)
+        assertTrue(ps2.requiresBios)
+        assertFalse(ps2.requiresFirmware)
+        assertEquals("nethersx2", ps2.defaultEngineId)
+        assertTrue(ps2.requiredFileLabel?.contains("scph39001") == true)
+
+        // 5. PS3: Native Engine APS3e, WAJIB FIRMWARE SONY
+        val ps3 = PlatformExecutionMatrix.getRule(GamePlatform.PS3)
+        assertEquals(ExecutionType.NATIVE_ENGINE_REQUIRES_FIRMWARE, ps3.executionType)
+        assertFalse(ps3.requiresBios)
+        assertTrue(ps3.requiresFirmware)
+        assertEquals("aps3e", ps3.defaultEngineId)
+        assertTrue(ps3.requiredFileLabel?.contains("PS3UPDAT.PUP") == true)
+    }
+
+    @Test
+    fun test52_biosManager_officialRegistryAndAssetTargetPaths() {
+        val ps1 = BiosManager.ps1Bios
+        assertEquals("scph1001.bin", ps1.fileName)
+        assertTrue(ps1.downloadUrl.contains("archive.org"))
+
+        val ps2 = BiosManager.ps2Bios
+        assertEquals("scph39001.bin", ps2.fileName)
+        assertTrue(ps2.downloadUrl.contains("archive.org"))
+
+        val ps3 = BiosManager.ps3Firmware
+        assertEquals("PS3UPDAT.PUP", ps3.fileName)
+        assertTrue(ps3.downloadUrl.contains("dus01.ps3.update.playstation.net"))
+
+        assertEquals("scph39001.bin", BiosManager.getRequiredEntryForPlatform(GamePlatform.PS2)?.fileName)
+        assertEquals("PS3UPDAT.PUP", BiosManager.getRequiredEntryForPlatform(GamePlatform.PS3)?.fileName)
+        assertNull(BiosManager.getRequiredEntryForPlatform(GamePlatform.PSP))
+        assertNull(BiosManager.getRequiredEntryForPlatform(GamePlatform.NINTENDO))
+        assertNull(BiosManager.getRequiredEntryForPlatform(GamePlatform.PC))
+    }
+
+    @Test
+    fun test53_aps3e_lightweightEngineRegistration() {
+        val aps3e = EngineManager.aps3eEngine
+        assertEquals("aps3e", aps3e.id)
+        assertEquals(GamePlatform.PS3, aps3e.platform)
+        assertEquals(TargetEmulator.ARMSX3, aps3e.targetEmulator)
+        assertEquals("org.aps3e", aps3e.primaryPackageName)
+        assertEquals("~26 MB", aps3e.estimatedSizeLabel)
+        assertTrue(aps3e.alternatePackageNames.contains("com.armsx3.play"))
+
+        val resolved = EngineManager.getEngineForPlatform(GamePlatform.PS3)
+        assertEquals("aps3e", resolved.id)
     }
 }

@@ -24,6 +24,8 @@
         <package android:name="io.github.lime3ds" />
         <package android:name="org.sudachi.sudachi_emu" />
         <package android:name="com.swordfish.lemuroid" />
+        <package android:name="org.aps3e" />
+        <package android:name="org.duckstation.android" />
         <package android:name="com.armsx3.play" />
     </queries>
 

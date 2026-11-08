@@ -76,6 +76,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.nexusdeck.app.NexusDeckTheme
 import com.nexusdeck.app.core.launcher.GameLauncher
+import com.nexusdeck.app.core.bios.BiosManager
 import com.nexusdeck.app.core.downloader.SniffedDownload
 import com.nexusdeck.app.core.launcher.LauncherResult
 import com.nexusdeck.app.core.manager.GameInstallManager
@@ -174,6 +175,12 @@ fun DashboardScreen(
         val engine = EngineManager.getEngineForGame(game)
         val isInstalled = EngineManager.isEngineInstalled(context, engine)
         val optimalConfig = AutoTuningEngine.generateOptimalConfig(spec = hardwareSpec, game = game)
+
+        if (!BiosManager.isBiosOrFirmwareReady(context, game.platform)) {
+            coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                BiosManager.ensureBiosReady(context, game.platform)
+            }
+        }
 
         if (game.executionMode == EngineExecutionMode.IN_APP_PLAYABLE) {
             // Untuk game GBA, SNES, NES, PSP dll.: Langsung putar di Real Embedded Player EmulatorJS

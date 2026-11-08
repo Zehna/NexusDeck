@@ -6,8 +6,10 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.util.Log
 import androidx.core.content.FileProvider
+import com.nexusdeck.app.core.bios.BiosManager
 import com.nexusdeck.app.core.engine.EngineInfo
 import com.nexusdeck.app.core.engine.EngineManager
+import com.nexusdeck.app.core.engine.PlatformExecutionMatrix
 import com.nexusdeck.app.core.model.EngineConfig
 import com.nexusdeck.app.core.model.GameItem
 import java.io.File
@@ -105,6 +107,25 @@ object GameLauncher {
                     putExtra("bootPath", romPath)
                     putExtra("source", "nexusdeck")
                 }
+                resolvedPackage.contains("duckstation") -> {
+                    // DuckStation (PS1): Direct Boot dengan verifikasi BIOS scph1001.bin
+                    setDataAndType(romUri, "application/octet-stream")
+                    putExtra("bootPath", romPath)
+                    val biosFile = BiosManager.getTargetFileForEntry(context, BiosManager.ps1Bios)
+                    if (biosFile.exists()) {
+                        putExtra("bios_path", biosFile.absolutePath)
+                    }
+                }
+                resolvedPackage.contains("aps3e") || resolvedPackage.contains("armsx3") || resolvedPackage.contains("rpcs3") -> {
+                    // APS3e / ARMSX3 (PS3): Direct Boot dengan injeksi Firmware Resmi Sony PS3UPDAT.PUP
+                    setDataAndType(romUri, "application/octet-stream")
+                    putExtra("bootPath", romPath)
+                    putExtra("game_path", romPath)
+                    val fwFile = BiosManager.getTargetFileForEntry(context, BiosManager.ps3Firmware)
+                    if (fwFile.exists()) {
+                        putExtra("firmware_path", fwFile.absolutePath)
+                    }
+                }
                 resolvedPackage.contains("lime3ds") || resolvedPackage.contains("citra") -> {
                     putExtra("GamePath", romPath)
                 }
@@ -142,11 +163,16 @@ object GameLauncher {
         val engine = EngineManager.getEngineForGame(game)
         val installedPackage = EngineManager.getInstalledPackage(context, engine)
 
+        val rule = PlatformExecutionMatrix.getRule(game.platform)
+        val biosReady = BiosManager.isBiosOrFirmwareReady(context, game.platform)
+
         Log.i(
             TAG,
             """
             ============================================================
             [NexusDeck] Preparing Native Launch for "${game.title}" (${game.platform.displayName})
+            Execution Rule  : ${rule.executionType.displayName}
+            Required Asset  : ${rule.requiredFileLabel ?: "None"} (Ready: $biosReady)
             Resolved Engine : ${engine.name} (ID: ${engine.id})
             Target Package  : ${installedPackage ?: engine.primaryPackageName} (Installed: ${installedPackage != null})
             ROM Path        : $romPath

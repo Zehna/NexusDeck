@@ -146,12 +146,38 @@ object EngineManager {
         version = "latest"
     )
 
+    val aps3eEngine = EngineInfo(
+        id = "aps3e",
+        name = "APS3e (RPCS3 Android)",
+        platform = GamePlatform.PS3,
+        targetEmulator = TargetEmulator.ARMSX3,
+        primaryPackageName = "org.aps3e",
+        alternatePackageNames = listOf("com.armsx3.play", "org.rpcs3"),
+        downloadUrl = "https://github.com/APS3e/APS3e/releases/latest/download/APS3e.apk",
+        estimatedSizeLabel = "~26 MB",
+        description = "Engine PlayStation 3 ultra-ringan (~26 MB) generasi baru berbasis RPCS3 & Vulkan.",
+        version = "v1.2.0"
+    )
+
+    val duckStationEngine = EngineInfo(
+        id = "duckstation",
+        name = "DuckStation",
+        platform = GamePlatform.PS2,
+        targetEmulator = TargetEmulator.ARMSX2,
+        primaryPackageName = "org.duckstation.android",
+        downloadUrl = "https://github.com/stenzek/duckstation/releases/latest/download/duckstation-android.apk",
+        estimatedSizeLabel = "~16 MB",
+        description = "Emulator PlayStation 1 berpresisi tinggi dengan dukungan BIOS otomatis.",
+        version = "latest"
+    )
+
     val armsx3Engine = EngineInfo(
         id = "armsx3",
         name = "ARMSX3",
         platform = GamePlatform.PS3,
         targetEmulator = TargetEmulator.ARMSX3,
         primaryPackageName = "com.armsx3.play",
+        alternatePackageNames = listOf("org.aps3e"),
         downloadUrl = "https://github.com/ARMSX3/ARMSX3/releases/latest/download/ARMSX3.apk",
         estimatedSizeLabel = "~65 MB",
         description = "Experimental PlayStation 3 runner core.",
@@ -176,10 +202,12 @@ object EngineManager {
     val registeredEngines: List<EngineInfo> = listOf(
         ppssppEngine,
         netherSx2Engine,
+        duckStationEngine,
         gameNativeEngine,
         melonDsEngine,
         lime3dsEngine,
         sudachiEngine,
+        aps3eEngine,
         armsx3Engine,
         lemuroidEngine
     )
@@ -198,7 +226,7 @@ object EngineManager {
             GamePlatform.PS2 -> netherSx2Engine
             GamePlatform.PC -> gameNativeEngine
             GamePlatform.NINTENDO -> lemuroidEngine
-            GamePlatform.PS3 -> armsx3Engine
+            GamePlatform.PS3 -> aps3eEngine
         }
     }
 
@@ -210,7 +238,7 @@ object EngineManager {
             TargetEmulator.MelonDS -> melonDsEngine
             TargetEmulator.Lime3DS -> lime3dsEngine
             TargetEmulator.Sudachi -> sudachiEngine
-            TargetEmulator.ARMSX3 -> armsx3Engine
+            TargetEmulator.ARMSX3 -> aps3eEngine
             TargetEmulator.Lemuroid, TargetEmulator.NexusRetroCore -> lemuroidEngine
         }
     }
