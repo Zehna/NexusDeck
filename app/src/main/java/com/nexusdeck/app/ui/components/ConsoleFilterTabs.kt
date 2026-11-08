@@ -20,6 +20,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import com.nexusdeck.app.core.model.GamePlatform
 import com.nexusdeck.app.ui.theme.NexusPalette
@@ -46,6 +48,8 @@ fun ConsoleFilterTabs(
     onSelectFilter: (CategoryPillFilter) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val haptic = LocalHapticFeedback.current
+
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -61,7 +65,10 @@ fun ConsoleFilterTabs(
                     modifier = Modifier
                         .clip(RoundedCornerShape(50))
                         .background(brush = NexusPalette.VioletGradient)
-                        .clickable { onSelectFilter(pill) }
+                        .clickable {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onSelectFilter(pill)
+                        }
                         .padding(horizontal = 16.dp, vertical = 9.dp),
                     contentAlignment = Alignment.Center
                 ) {
@@ -80,7 +87,10 @@ fun ConsoleFilterTabs(
                     border = BorderStroke(1.dp, NexusPalette.CardBorder),
                     modifier = Modifier
                         .clip(RoundedCornerShape(50))
-                        .clickable { onSelectFilter(pill) }
+                        .clickable {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onSelectFilter(pill)
+                        }
                 ) {
                     Text(
                         text = pill.label,

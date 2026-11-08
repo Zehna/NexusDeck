@@ -98,6 +98,19 @@ import com.nexusdeck.app.ui.components.NexusBottomTab
 import com.nexusdeck.app.ui.components.consoleCardFocus
 import com.nexusdeck.app.ui.components.nextCategoryFilter
 import com.nexusdeck.app.ui.components.platformBadgeColor
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import com.nexusdeck.app.ui.components.EmptyStateView
+import com.nexusdeck.app.ui.components.HeroSpotlightCarousel
+import com.nexusdeck.app.ui.components.ShimmerPosterCard
+import com.nexusdeck.app.ui.components.shimmerPlaceholder
 import com.nexusdeck.app.ui.theme.NexusPalette
 import com.nexusdeck.app.core.engine.EngineManager
 import kotlinx.coroutines.delay
@@ -383,17 +396,39 @@ fun DashboardScreen(
                     Spacer(modifier = Modifier.height(12.dp))
                 }
 
-                // 4. Grid Katalog 2 Kolom Vertikal ala Poster Box Art + Infinite Scroll
-                if (displayedGames.isEmpty() && !isLoadingOnline) {
-                    EmptyTabPlaceholder(
-                        tab = selectedBottomTab,
-                        onExploreCatalog = {
-                            selectedBottomTab = NexusBottomTab.HOME
-                            selectedCategoryPill = CategoryPillFilter.ALL
-                            searchQuery = ""
-                        },
+                // 4. Grid Katalog 2 Kolom Vertikal ala Poster Box Art + Infinite Scroll + Shimmer Skeleton
+                if (displayedGames.isEmpty() && isLoadingOnline) {
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(2),
+                        contentPadding = PaddingValues(top = 4.dp, bottom = 104.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp),
                         modifier = Modifier.weight(1f)
-                    )
+                    ) {
+                        items(6) {
+                            ShimmerPosterCard()
+                        }
+                    }
+                } else if (displayedGames.isEmpty() && !isLoadingOnline) {
+                    if (searchQuery.isNotBlank() || selectedBottomTab == NexusBottomTab.HOME) {
+                        EmptyStateView(
+                            searchQuery = searchQuery,
+                            onOpenWebExplorer = {
+                                selectedBottomTab = NexusBottomTab.BROWSER
+                            },
+                            modifier = Modifier.weight(1f)
+                        )
+                    } else {
+                        EmptyTabPlaceholder(
+                            tab = selectedBottomTab,
+                            onExploreCatalog = {
+                                selectedBottomTab = NexusBottomTab.HOME
+                                selectedCategoryPill = CategoryPillFilter.ALL
+                                searchQuery = ""
+                            },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
                 } else {
                     LazyVerticalGrid(
                         state = gridState,
@@ -403,6 +438,34 @@ fun DashboardScreen(
                         verticalArrangement = Arrangement.spacedBy(14.dp),
                         modifier = Modifier.weight(1f)
                     ) {
+                        // Hero Spotlight Carousel di bagian atas saat di tab HOME All
+                        if (selectedBottomTab == NexusBottomTab.HOME && searchQuery.isBlank() && selectedCategoryPill == CategoryPillFilter.ALL) {
+                            item(span = { GridItemSpan(2) }) {
+                                val spotlightGames = remember(displayedGames) { displayedGames.take(5) }
+                                HeroSpotlightCarousel(
+                                    featuredGames = spotlightGames,
+                                    getGameState = { id -> gameStates[id] ?: GameState.NotInstalled },
+                                    onGameClick = { game -> selectedGameForSheet = game },
+                                    onActionClick = { game ->
+                                        val state = gameStates[game.id] ?: GameState.NotInstalled
+                                        if (state is GameState.Installed && state.romPath.isNotBlank()) {
+                                            val optimalConfig = AutoTuningEngine.generateOptimalConfig(spec = hardwareSpec, game = game)
+                                            GameLauncher.launchGame(
+                                                context = context,
+                                                game = game,
+                                                romPath = state.romPath,
+                                                engineConfig = optimalConfig,
+                                                autoTuneEnabled = true
+                                            )
+                                        } else {
+                                            installManager.installGame(game)
+                                            Toast.makeText(context, "Mengunduh ${game.title}...", Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                )
+                            }
+                        }
+
                         itemsIndexed(
                             items = displayedGames,
                             key = { _, game -> game.id }
@@ -435,7 +498,17 @@ fun DashboardScreen(
                             )
                         }
 
-                        if (isLoadingOnline || isPaginatingMore) {
+                        if (isPaginatingMore) {
+                            item(span = { GridItemSpan(2) }) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    ShimmerPosterCard(modifier = Modifier.weight(1f))
+                                    ShimmerPosterCard(modifier = Modifier.weight(1f))
+                                }
+                            }
+                        } else if (isLoadingOnline) {
                             item(span = { GridItemSpan(2) }) {
                                 Box(
                                     modifier = Modifier
@@ -627,76 +700,100 @@ private fun FullRoidHeader(
     hardwareSpec: HardwareSpec,
     onSettingsClick: () -> Unit = {}
 ) {
-    Row(
+    val haptic = LocalHapticFeedback.current
+
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+        shape = RoundedCornerShape(18.dp),
+        color = Color(0xEB0D0C13),
+        border = BorderStroke(
+            1.dp,
+            androidx.compose.ui.graphics.Brush.horizontalGradient(
+                listOf(
+                    Color(0x337C3AED),
+                    Color(0x11C084FC),
+                    Color(0x337C3AED)
+                )
+            )
+        ),
+        shadowElevation = 8.dp
     ) {
         Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(34.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(brush = NexusPalette.VerticalVioletGradient),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "N",
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.ExtraBold
-                    ),
-                    color = Color.White
-                )
-            }
-
-            Column {
-                Text(
-                    text = "NexusDeck",
-                    style = MaterialTheme.typography.headlineSmall.copy(
-                        fontWeight = FontWeight.ExtraBold
-                    ),
-                    color = Color.White
-                )
-                Text(
-                    text = "Universal Cloud & Console Hub",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = NexusPalette.TextSecondary
-                )
-            }
-        }
-
-        // Badge Status Hardware Tipis di Pojok Kanan
-        Surface(
-            shape = RoundedCornerShape(50),
-            color = NexusPalette.SurfaceCard,
-            border = BorderStroke(1.dp, NexusPalette.CardBorder),
             modifier = Modifier
-                .clip(RoundedCornerShape(50))
-                .clickable(onClick = onSettingsClick)
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(horizontal = 11.dp, vertical = 6.dp)
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Box(
                     modifier = Modifier
-                        .size(7.dp)
-                        .clip(CircleShape)
-                        .background(NexusPalette.SecondaryPurple)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = "${hardwareSpec.socModel.take(16)} • ${hardwareSpec.totalRamGb}GB",
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        fontWeight = FontWeight.SemiBold
-                    ),
-                    color = NexusPalette.TextPrimary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                        .size(34.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(brush = NexusPalette.VerticalVioletGradient),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "N",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.ExtraBold
+                        ),
+                        color = Color.White
+                    )
+                }
+
+                Column {
+                    Text(
+                        text = "NexusDeck",
+                        style = MaterialTheme.typography.headlineSmall.copy(
+                            fontWeight = FontWeight.ExtraBold
+                        ),
+                        color = Color.White
+                    )
+                    Text(
+                        text = "Universal Cloud & Console Hub",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = NexusPalette.TextSecondary
+                    )
+                }
+            }
+
+            // Badge Status Hardware Tipis di Pojok Kanan
+            Surface(
+                shape = RoundedCornerShape(50),
+                color = NexusPalette.SurfaceCard,
+                border = BorderStroke(1.dp, NexusPalette.CardBorder),
+                modifier = Modifier
+                    .clip(RoundedCornerShape(50))
+                    .clickable {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onSettingsClick()
+                    }
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(horizontal = 11.dp, vertical = 6.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(7.dp)
+                            .clip(CircleShape)
+                            .background(NexusPalette.SecondaryPurple)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "${hardwareSpec.socModel.take(16)} • ${hardwareSpec.totalRamGb}GB",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.SemiBold
+                        ),
+                        color = NexusPalette.TextPrimary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
         }
     }
@@ -805,10 +902,27 @@ fun PosterGameCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val haptic = LocalHapticFeedback.current
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val springScale by animateFloatAsState(
+        targetValue = when {
+            isPressed -> 1.035f
+            isFocused -> 1.045f
+            else -> 1f
+        },
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
+        label = "card_spring_bounce"
+    )
+
     val platformColor = platformBadgeColor(game.platform)
     val isInstalled = gameState is GameState.Installed
     val borderColor = when {
         isFocused -> NexusPalette.SecondaryPurple
+        isPressed -> platformColor
         isInstalled -> Color(0xFF22C55E).copy(alpha = 0.7f)
         else -> NexusPalette.CardBorder
     }
@@ -817,23 +931,39 @@ fun PosterGameCard(
         modifier = modifier
             .fillMaxWidth()
             .aspectRatio(0.71f)
+            .scale(springScale)
+            .shadow(
+                elevation = if (isFocused || isPressed) 14.dp else 6.dp,
+                shape = RoundedCornerShape(16.dp),
+                ambientColor = if (isFocused || isPressed) platformColor.copy(alpha = 0.4f) else Color.Transparent,
+                spotColor = if (isFocused || isPressed) NexusPalette.PrimaryViolet.copy(alpha = 0.4f) else Color.Transparent
+            )
             .consoleCardFocus(
                 isFocused = isFocused,
                 focusRequester = focusRequester,
                 onFocusChanged = onFocusChanged,
-                onSelectAction = onClick,
-                glowColor = NexusPalette.PrimaryViolet
+                onSelectAction = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onClick()
+                },
+                glowColor = platformColor
             )
-            .clickable(onClick = onClick),
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onClick()
+                }
+            ),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = NexusPalette.SurfaceCard
         ),
         border = BorderStroke(
-            width = if (isFocused) 2.dp else 1.dp,
+            width = if (isFocused || isPressed) 2.dp else 1.dp,
             color = borderColor
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+        )
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             // Full Vertical Poster Artwork
@@ -852,7 +982,10 @@ fun PosterGameCard(
                     .size(30.dp)
                     .clip(CircleShape)
                     .background(Color(0xAA0B0B0E))
-                    .clickable(onClick = onToggleFavorite),
+                    .clickable {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onToggleFavorite()
+                    },
                 contentAlignment = Alignment.Center
             ) {
                 Icon(

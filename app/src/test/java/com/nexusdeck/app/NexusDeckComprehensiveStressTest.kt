@@ -1,6 +1,8 @@
 package com.nexusdeck.app
 
 import android.content.pm.ActivityInfo
+import androidx.compose.ui.graphics.Color
+import com.nexusdeck.app.ui.components.platformBadgeColor
 import com.nexusdeck.app.core.downloader.SniffedDownload
 import com.nexusdeck.app.core.downloader.WebAdBlocker
 import com.nexusdeck.app.core.downloader.WebDownloadSniffer
@@ -817,5 +819,23 @@ class NexusDeckComprehensiveStressTest {
             assertTrue("Description must not be blank: ${engine.name}", engine.description.isNotBlank())
             assertNotNull("Engine ID must be lookup-able: ${engine.id}", EngineManager.getEngineById(engine.id))
         }
+    }
+
+    @Test
+    fun test35_platformBadgeColors_matchesConsoleBrandingIdentities() {
+        // PSP: Cyan Neon (#06B6D4)
+        assertEquals(Color(0xFF06B6D4), platformBadgeColor(GamePlatform.PSP))
+
+        // PS2: Deep Royal Blue (#3B82F6)
+        assertEquals(Color(0xFF3B82F6), platformBadgeColor(GamePlatform.PS2))
+
+        // Nintendo: Crimson Red (#EF4444)
+        assertEquals(Color(0xFFEF4444), platformBadgeColor(GamePlatform.NINTENDO))
+
+        // PC: Emerald Green (#10B981)
+        assertEquals(Color(0xFF10B981), platformBadgeColor(GamePlatform.PC))
+
+        // PS3: Violet Purple (#8B5CF6)
+        assertEquals(Color(0xFF8B5CF6), platformBadgeColor(GamePlatform.PS3))
     }
 }
