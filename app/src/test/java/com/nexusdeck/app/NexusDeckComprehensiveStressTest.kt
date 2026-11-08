@@ -219,7 +219,7 @@ class NexusDeckComprehensiveStressTest {
 
         val catalogService = OnlineGameCatalogService(listOf(faultyPrimarySource, healthyBackupSource))
 
-        val results = catalogService.searchGames(query = "Tekken", platform = GamePlatform.PS2, page = 2).first()
+        val results = catalogService.searchOnlineGames(query = "Tekken", platform = GamePlatform.PS2, page = 2).first()
 
         assertTrue("Failover must deliver results from the healthy mirror without crashing", results.isNotEmpty())
         assertTrue(results.any { it.title.contains("Backup Mirror") })
@@ -228,7 +228,7 @@ class NexusDeckComprehensiveStressTest {
     @Test
     fun test09_catalogSearch_extremeQueryEmptyString() = runBlocking {
         val service = OnlineGameCatalogService()
-        val results = service.searchGames(query = "   ", platform = null, page = 1).first()
+        val results = service.searchOnlineGames(query = "   ", platform = null, page = 1).first()
 
         assertTrue("Empty query should return default catalog games without throwing", results.isNotEmpty())
     }
@@ -237,7 +237,7 @@ class NexusDeckComprehensiveStressTest {
     fun test10_catalogSearch_extremeQuerySpecialCharactersAndSymbols() = runBlocking {
         val service = OnlineGameCatalogService()
         val specialQuery = "!@#$%^&*()_+{}[]:;\"'<>?,./|\\~`🎮🔥🚀"
-        val results = service.searchGames(query = specialQuery, platform = null, page = 1).first()
+        val results = service.searchOnlineGames(query = specialQuery, platform = null, page = 1).first()
 
         assertNotNull("Search with special characters must never throw exception", results)
     }
@@ -246,7 +246,7 @@ class NexusDeckComprehensiveStressTest {
     fun test11_catalogSearch_extremeQueryVeryLongText() = runBlocking {
         val service = OnlineGameCatalogService()
         val veryLongQuery = "Final Fantasy ".repeat(50) // 700 chars
-        val results = service.searchGames(query = veryLongQuery, platform = null, page = 1).first()
+        val results = service.searchOnlineGames(query = veryLongQuery, platform = null, page = 1).first()
 
         assertNotNull("Very long query string must be handled safely without regex catastrophe", results)
     }
@@ -255,10 +255,10 @@ class NexusDeckComprehensiveStressTest {
     fun test12_catalogSearch_platformFilterStrictness() = runBlocking {
         val service = OnlineGameCatalogService()
 
-        val pspResults = service.searchGames("Crisis", GamePlatform.PSP, page = 1).first()
+        val pspResults = service.searchOnlineGames("Crisis", GamePlatform.PSP, page = 1).first()
         assertTrue(pspResults.all { it.platform == GamePlatform.PSP })
 
-        val nintendoResults = service.searchGames("Zelda", GamePlatform.NINTENDO, page = 1).first()
+        val nintendoResults = service.searchOnlineGames("Zelda", GamePlatform.NINTENDO, page = 1).first()
         assertTrue(nintendoResults.all { it.platform == GamePlatform.NINTENDO })
     }
 
@@ -278,7 +278,7 @@ class NexusDeckComprehensiveStressTest {
 
         val service = OnlineGameCatalogService(listOf(completelyBrokenSource))
         // Page > 1 skips local MockGames so all remote sources fail
-        val results = service.searchGames(query = "God of War", platform = GamePlatform.PS2, page = 2).first()
+        val results = service.searchOnlineGames(query = "God of War", platform = GamePlatform.PS2, page = 2).first()
 
         assertTrue("Synthetic fallback must provide games when all mirrors are offline", results.isNotEmpty())
         assertTrue(results.first().title.contains("God of War"))
