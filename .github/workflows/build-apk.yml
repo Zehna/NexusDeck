@@ -29,7 +29,28 @@ jobs:
         run: chmod +x gradlew
 
       - name: Run Unit Tests
-        run: ./gradlew testDebugUnitTest --stacktrace
+        run: |
+          if ! ./gradlew testDebugUnitTest --info; then
+            python3 -c "
+          import glob, xml.etree.ElementTree as ET
+          for xml_file in glob.glob('**/test-results/**/*.xml', recursive=True):
+              tree = ET.parse(xml_file)
+              for tc in tree.findall('.//testcase'):
+                  fail = tc.find('failure')
+                  if fail is not None:
+                      msg = fail.get('message', '')
+                      text = (fail.text or '').strip().split('\n')[0]
+                      print(f'::error file={tc.get(\"classname\")}.kt,title={tc.get(\"name\")}::{msg} | {text}')
+          "
+            exit 1
+          fi
+
+      - name: Upload Test Results on Failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-results
+          path: app/build/reports/tests/testDebugUnitTest/
 
       - name: Build Debug APK with Gradle
         run: ./gradlew assembleDebug --stacktrace
