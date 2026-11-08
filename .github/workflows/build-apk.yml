@@ -30,6 +30,7 @@ jobs:
 
       - name: Run Unit Tests
         run: |
+          set -o pipefail
           ./gradlew testDebugUnitTest --stacktrace 2>&1 | tee build_log.txt || {
             echo "::error::Gradle command failed"
             grep -E "(e: |error:|FAILED)" build_log.txt | head -n 40 | while IFS= read -r line; do
@@ -40,20 +41,24 @@ jobs:
 
       - name: Build Debug APK with Gradle
         run: |
+          set -o pipefail
           ./gradlew assembleDebug --stacktrace 2>&1 | tee apk_log.txt || {
             echo "::error::Assemble APK failed"
-            grep -E "(e: |error:|FAILED|FAILURE:|Exception)" apk_log.txt | head -n 40 | while IFS= read -r line; do
-              echo "::error::$line"
-            done
-            tail -n 60 apk_log.txt | while IFS= read -r line; do
+            tail -n 80 apk_log.txt | while IFS= read -r line; do
               echo "::error::$line"
             done
             exit 1
           }
 
+      - name: List APK outputs
+        if: always()
+        run: |
+          echo "=== APK Directory Listing ==="
+          ls -laR app/build/outputs/ || true
+
       - name: Upload Debug APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: NexusDeck-app-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
