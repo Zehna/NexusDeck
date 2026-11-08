@@ -19,6 +19,8 @@ class NexusEmbeddedCoreRunner(
 
     private val _telemetry = MutableStateFlow(CoreTelemetry())
     override val telemetry: StateFlow<CoreTelemetry> = _telemetry.asStateFlow()
+    override val lastReceivedInput: VirtualInputState
+        get() = currentInput
 
     private var activeGame: GameItem? = null
     private var romLocation: String = ""

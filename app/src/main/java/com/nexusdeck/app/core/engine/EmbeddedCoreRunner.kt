@@ -24,6 +24,8 @@ data class CoreTelemetry(
 
 interface EmbeddedCoreRunner {
     val telemetry: StateFlow<CoreTelemetry>
+    val lastReceivedInput: VirtualInputState
+        get() = VirtualInputState()
 
     fun loadRom(game: GameItem, romPath: String): Boolean
     fun sendInput(input: VirtualInputState)

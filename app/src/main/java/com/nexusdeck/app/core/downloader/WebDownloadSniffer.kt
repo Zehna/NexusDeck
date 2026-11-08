@@ -48,7 +48,15 @@ data class SniffedDownload(
 
     companion object {
         fun cleanTitleFromFilename(fileName: String): String {
-            val withoutExt = fileName.substringBeforeLast(".")
+            var withoutExt = fileName
+                .replace(Regex("""(?i)\.7z\.\d+${'$'}"""), "")
+                .replace(Regex("""(?i)\.part\d+\.rar${'$'}"""), "")
+                .replace(Regex("""(?i)\.tar\.gz${'$'}"""), "")
+
+            if (withoutExt == fileName) {
+                withoutExt = fileName.substringBeforeLast(".")
+            }
+
             return withoutExt
                 .replace("_", " ")
                 .replace(Regex("\\s*\\((USA|Europe|Japan|En,Fr,De,Es,It|ISO|ROM|v\\d+.*?)\\)", RegexOption.IGNORE_CASE), "")
@@ -118,7 +126,7 @@ object WebDownloadSniffer {
     val GAME_EXTENSIONS = setOf(
         "iso", "cso", "chd", "zip", "7z", "pkg", "bin",
         "rar", "gba", "nds", "rvz", "wbfs", "gcm", "nes",
-        "sfc", "smc", "n64", "z64"
+        "sfc", "smc", "n64", "z64", "001", "gz", "tgz"
     )
 
     /**
@@ -135,9 +143,37 @@ object WebDownloadSniffer {
             return true
         }
 
+        // Multi-part archive patterns (.7z.001, .part1.rar, .tar.gz)
+        if (cleanUrl.contains(".7z.001") ||
+            cleanUrl.contains(".tar.gz") ||
+            cleanUrl.contains(".tgz") ||
+            Regex("""\.part\d+\.rar""", RegexOption.IGNORE_CASE).containsMatchIn(cleanUrl)
+        ) {
+            return true
+        }
+
+        // Dynamic URL query string patterns (e.g. download.php?id=123&file=Persona4.iso)
+        if (url.contains('?')) {
+            val query = url.substringAfter('?').lowercase(Locale.US)
+            val decodedQuery = runCatching { URLDecoder.decode(query, "UTF-8") }.getOrDefault(query)
+            if (GAME_EXTENSIONS.any { ext ->
+                decodedQuery.contains(".$ext") ||
+                Regex("""(?:=|\b)[a-z0-9_-]+\.$ext(?:\b|&|$)""").containsMatchIn(decodedQuery)
+            } || decodedQuery.contains(".7z.001") ||
+                decodedQuery.contains(".tar.gz") ||
+                Regex("""\.part\d+\.rar""", RegexOption.IGNORE_CASE).containsMatchIn(decodedQuery)
+            ) {
+                return true
+            }
+        }
+
         if (!contentDisposition.isNullOrBlank()) {
             val lowerCd = contentDisposition.lowercase(Locale.US)
-            if (GAME_EXTENSIONS.any { lowerCd.contains(".$it") }) {
+            if (GAME_EXTENSIONS.any { lowerCd.contains(".$it") } ||
+                lowerCd.contains(".7z.001") ||
+                lowerCd.contains(".tar.gz") ||
+                Regex("""\.part\d+\.rar""", RegexOption.IGNORE_CASE).containsMatchIn(lowerCd)
+            ) {
                 return true
             }
         }
@@ -146,7 +182,9 @@ object WebDownloadSniffer {
             val lowerMime = mimeType.lowercase(Locale.US)
             if (lowerMime.contains("x-iso9660-image") ||
                 lowerMime.contains("x-7z-compressed") ||
-                lowerMime.contains("x-cd-image")
+                lowerMime.contains("x-cd-image") ||
+                lowerMime.contains("application/zip") ||
+                lowerMime.contains("application/x-rar-compressed")
             ) {
                 return true
             }
@@ -156,7 +194,7 @@ object WebDownloadSniffer {
     }
 
     /**
-     * Mengekstrak nama file nyata dari Content-Disposition atau URL path.
+     * Mengekstrak nama file nyata dari Content-Disposition, URL query parameter, atau URL path.
      */
     fun extractFileName(url: String, contentDisposition: String? = null): String {
         if (!contentDisposition.isNullOrBlank()) {
@@ -178,6 +216,20 @@ object WebDownloadSniffer {
             val plainMatch = plainRegex.find(cd)
             if (plainMatch != null) {
                 return plainMatch.groupValues[1].trim('"', '\'')
+            }
+        }
+
+        // Check dynamic query parameters for filename (e.g. ?file=Persona4.iso or ?rom=Tekken5.iso)
+        if (url.contains('?')) {
+            val queryString = url.substringAfter('?')
+            val queryParamRegex = Regex("""(?i)(?:file|filename|name|f|rom)\s*=\s*([^&]+)""")
+            val paramMatch = queryParamRegex.find(queryString)
+            if (paramMatch != null) {
+                val rawVal = paramMatch.groupValues[1]
+                val decoded = runCatching { URLDecoder.decode(rawVal, "UTF-8") }.getOrDefault(rawVal)
+                if (decoded.isNotBlank() && decoded.contains('.')) {
+                    return decoded.trim('"', '\'')
+                }
             }
         }
 
