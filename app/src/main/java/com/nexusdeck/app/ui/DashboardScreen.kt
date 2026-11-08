@@ -35,6 +35,9 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -44,6 +47,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -72,6 +76,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.nexusdeck.app.NexusDeckTheme
 import com.nexusdeck.app.core.launcher.GameLauncher
+import com.nexusdeck.app.core.downloader.SniffedDownload
 import com.nexusdeck.app.core.launcher.LauncherResult
 import com.nexusdeck.app.core.manager.GameInstallManager
 import com.nexusdeck.app.core.model.CompatibilityTier
@@ -83,6 +88,7 @@ import com.nexusdeck.app.core.optimizer.AutoTuningEngine
 import com.nexusdeck.app.core.profiler.HardwareProfiler
 import com.nexusdeck.app.core.repository.OnlineGameCatalogService
 import com.nexusdeck.app.data.MockGames
+import com.nexusdeck.app.ui.browser.NexusWebBrowser
 import com.nexusdeck.app.ui.components.BottomNavBar
 import com.nexusdeck.app.ui.components.CategoryPillFilter
 import com.nexusdeck.app.ui.components.ConsoleFilterTabs
@@ -135,6 +141,7 @@ fun DashboardScreen(
     var missingEmulatorResult by remember {
         mutableStateOf<LauncherResult.EmulatorNotFound?>(null)
     }
+    var detectedDownloadForDialog by remember { mutableStateOf<SniffedDownload?>(null) }
 
     // Jika sesi In-App Game Player sedang aktif, otomatis masuk ke layar Landscape InAppGameScreen
     val currentSession = activeGameSession
@@ -243,13 +250,23 @@ fun DashboardScreen(
 
     val displayedGames = remember(
         selectedBottomTab,
+        selectedCategoryPill,
         liveCatalogGames.toList(),
         savedLibraryGames,
         favoriteIds,
         gameStates
     ) {
         when (selectedBottomTab) {
-            NexusBottomTab.HOME -> liveCatalogGames.toList()
+            NexusBottomTab.HOME -> {
+                if (selectedCategoryPill.isFavoritesOnly) {
+                    val allKnown = LinkedHashMap<String, GameItem>()
+                    savedLibraryGames.forEach { (id, g) -> allKnown[id] = g }
+                    liveCatalogGames.forEach { allKnown[it.id] = it }
+                    allKnown.values.filter { it.id in favoriteIds }
+                } else {
+                    liveCatalogGames.toList()
+                }
+            }
             NexusBottomTab.FAVORITES -> {
                 val allKnown = LinkedHashMap<String, GameItem>()
                 savedLibraryGames.forEach { (id, g) -> allKnown[id] = g }
@@ -265,6 +282,7 @@ fun DashboardScreen(
                     st is GameState.Installed || st is GameState.Downloading || st is GameState.Extracting
                 }
             }
+            NexusBottomTab.BROWSER,
             NexusBottomTab.SETTINGS -> emptyList()
         }
     }
@@ -316,7 +334,10 @@ fun DashboardScreen(
             Spacer(modifier = Modifier.height(10.dp))
 
             // 1. Header Atas: Brand Logo & Badge Hardware Tipis di Pojok Kanan
-            FullRoidHeader(hardwareSpec = hardwareSpec)
+            FullRoidHeader(
+                hardwareSpec = hardwareSpec,
+                onSettingsClick = { selectedBottomTab = NexusBottomTab.SETTINGS }
+            )
 
             Spacer(modifier = Modifier.height(14.dp))
 
@@ -324,6 +345,13 @@ fun DashboardScreen(
                 SettingsTabContent(
                     hardwareSpec = hardwareSpec,
                     installedCount = installedCount,
+                    modifier = Modifier.weight(1f)
+                )
+            } else if (selectedBottomTab == NexusBottomTab.BROWSER) {
+                NexusWebBrowser(
+                    onDownloadIntercepted = { sniffed ->
+                        detectedDownloadForDialog = sniffed
+                    },
                     modifier = Modifier.weight(1f)
                 )
             } else {
@@ -545,10 +573,34 @@ fun DashboardScreen(
             onDismiss = { missingEmulatorResult = null }
         )
     }
+
+    val detectedDownload = detectedDownloadForDialog
+    if (detectedDownload != null) {
+        SniffedGameDownloadDialog(
+            sniffed = detectedDownload,
+            onConfirm = {
+                val gameItem = detectedDownload.toGameItem()
+                installManager.installGame(gameItem)
+                Toast.makeText(
+                    context,
+                    "Game terdeteksi ditambahkan ke Library: ${gameItem.title}",
+                    Toast.LENGTH_SHORT
+                ).show()
+                detectedDownloadForDialog = null
+                selectedBottomTab = NexusBottomTab.LIBRARY
+            },
+            onDismiss = {
+                detectedDownloadForDialog = null
+            }
+        )
+    }
 }
 
 @Composable
-private fun FullRoidHeader(hardwareSpec: HardwareSpec) {
+private fun FullRoidHeader(
+    hardwareSpec: HardwareSpec,
+    onSettingsClick: () -> Unit = {}
+) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -594,7 +646,10 @@ private fun FullRoidHeader(hardwareSpec: HardwareSpec) {
         Surface(
             shape = RoundedCornerShape(50),
             color = NexusPalette.SurfaceCard,
-            border = BorderStroke(1.dp, NexusPalette.CardBorder)
+            border = BorderStroke(1.dp, NexusPalette.CardBorder),
+            modifier = Modifier
+                .clip(RoundedCornerShape(50))
+                .clickable(onClick = onSettingsClick)
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -1218,6 +1273,142 @@ fun CompatibilityBadge(
             )
         }
     }
+}
+
+@Composable
+fun SniffedGameDownloadDialog(
+    sniffed: SniffedDownload,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val platformColor = platformBadgeColor(sniffed.platform)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = NexusPalette.SurfaceCard,
+        titleContentColor = Color.White,
+        textContentColor = NexusPalette.TextSecondary,
+        title = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(CircleShape)
+                        .background(brush = NexusPalette.VerticalVioletGradient),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "🎮",
+                        fontSize = 18.sp
+                    )
+                }
+                Text(
+                    text = "Game Terdeteksi!",
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontWeight = FontWeight.Bold
+                    ),
+                    color = Color.White
+                )
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFF13121A),
+                    border = BorderStroke(1.dp, NexusPalette.CardBorder),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = sniffed.fileName,
+                            style = MaterialTheme.typography.titleSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            ),
+                            maxLines = 2
+                        )
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = platformColor.copy(alpha = 0.2f),
+                                border = BorderStroke(1.dp, platformColor.copy(alpha = 0.5f))
+                            ) {
+                                Text(
+                                    text = sniffed.platform.displayName,
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontWeight = FontWeight.Bold
+                                    ),
+                                    color = platformColor,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = NexusPalette.CardBorder
+                            ) {
+                                Text(
+                                    text = sniffed.fileSizeLabel,
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontWeight = FontWeight.Medium
+                                    ),
+                                    color = NexusPalette.TextSecondary,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+
+                            Text(
+                                text = "•  ${sniffed.targetEmulator.displayName}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = NexusPalette.TextMuted
+                            )
+                        }
+                    }
+                }
+
+                Text(
+                    text = "Simpan langsung file game ini ke NexusDeck dan unduh di latar belakang?",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = NexusPalette.TextSecondary
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onConfirm,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = NexusPalette.PrimaryViolet,
+                    contentColor = Color.White
+                )
+            ) {
+                Text(
+                    text = "Simpan ke NexusDeck",
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(
+                    text = "Batal",
+                    color = NexusPalette.TextSecondary
+                )
+            }
+        }
+    )
 }
 
 @Preview(

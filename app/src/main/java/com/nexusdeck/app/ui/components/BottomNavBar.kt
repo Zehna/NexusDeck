@@ -32,16 +32,63 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.PathBuilder
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.nexusdeck.app.ui.theme.NexusPalette
 
+val GlobeWebIcon: ImageVector by lazy {
+    ImageVector.Builder(
+        name = "GlobeWeb",
+        defaultWidth = 24.dp,
+        defaultHeight = 24.dp,
+        viewportWidth = 24f,
+        viewportHeight = 24f
+    ).apply {
+        val path = PathBuilder().apply {
+            moveTo(12f, 2f)
+            curveTo(6.48f, 2f, 2f, 6.48f, 2f, 12f)
+            curveTo(2f, 17.52f, 6.48f, 22f, 12f, 22f)
+            curveTo(17.52f, 22f, 22f, 17.52f, 22f, 12f)
+            curveTo(22f, 6.48f, 17.52f, 2f, 12f, 2f)
+            close()
+            moveTo(11f, 19.93f)
+            curveTo(7.05f, 19.44f, 4f, 16.08f, 4f, 12f)
+            curveTo(4f, 11.38f, 4.08f, 10.79f, 4.21f, 10.21f)
+            lineTo(9f, 15f)
+            verticalLineTo(16f)
+            curveTo(9f, 17.1f, 9.9f, 18f, 11f, 18f)
+            verticalLineTo(19.93f)
+            close()
+            moveTo(17.9f, 17.39f)
+            curveTo(17.64f, 16.58f, 16.9f, 16f, 16f, 16f)
+            horizontalLineTo(15f)
+            verticalLineTo(13f)
+            curveTo(15f, 12.45f, 14.55f, 12f, 14f, 12f)
+            horizontalLineTo(8f)
+            verticalLineTo(10f)
+            horizontalLineTo(10f)
+            curveTo(10.55f, 10f, 11f, 9.55f, 11f, 9f)
+            verticalLineTo(7f)
+            horizontalLineTo(13f)
+            curveTo(14.1f, 7f, 15f, 6.1f, 15f, 5f)
+            verticalLineTo(4.59f)
+            curveTo(17.93f, 5.78f, 20f, 8.65f, 20f, 12f)
+            curveTo(20f, 14.08f, 19.2f, 15.97f, 17.9f, 17.39f)
+            close()
+        }.getNodes()
+        addPath(path, fill = SolidColor(Color.White))
+    }.build()
+}
+
 enum class NexusBottomTab(val label: String, val icon: ImageVector) {
     HOME("Home", Icons.Default.Home),
-    FAVORITES("Favorites", Icons.Default.Favorite),
+    BROWSER("Web", GlobeWebIcon),
     LIBRARY("Library", Icons.Default.Star),
+    FAVORITES("Favorites", Icons.Default.Favorite),
     SETTINGS("Settings", Icons.Default.Settings)
 }
 
@@ -73,7 +120,7 @@ fun BottomNavBar(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(66.dp)
-                    .padding(horizontal = 10.dp),
+                    .padding(horizontal = 6.dp),
                 horizontalArrangement = Arrangement.SpaceAround,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -85,14 +132,14 @@ fun BottomNavBar(
                 )
 
                 BottomNavItem(
-                    tab = NexusBottomTab.FAVORITES,
-                    isSelected = selectedTab == NexusBottomTab.FAVORITES,
+                    tab = NexusBottomTab.BROWSER,
+                    isSelected = selectedTab == NexusBottomTab.BROWSER,
                     badgeCount = 0,
-                    onClick = { onSelectTab(NexusBottomTab.FAVORITES) }
+                    onClick = { onSelectTab(NexusBottomTab.BROWSER) }
                 )
 
                 // Ruang untuk Floating Center Gamepad Button
-                Spacer(modifier = Modifier.size(62.dp))
+                Spacer(modifier = Modifier.size(56.dp))
 
                 BottomNavItem(
                     tab = NexusBottomTab.LIBRARY,
