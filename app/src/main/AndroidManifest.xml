@@ -14,6 +14,7 @@
     <!-- Package Visibility Queries for Target Emulators (Android 11+ / SDK 35) -->
     <queries>
         <package android:name="org.ppsspp.ppsspp" />
+        <package android:name="com.retroarch" />
         <package android:name="come.nanodata.armsx2" />
         <package android:name="com.armsx3.play" />
         <package android:name="app.gamenative" />

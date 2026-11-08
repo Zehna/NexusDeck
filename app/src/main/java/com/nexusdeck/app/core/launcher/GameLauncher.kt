@@ -36,6 +36,11 @@ object GameLauncher {
                 packageName = "org.ppsspp.ppsspp",
                 downloadUrl = "https://www.ppsspp.org/download/"
             )
+            TargetEmulator.NexusRetroCore -> EmulatorConfig(
+                emulatorName = "RetroArch",
+                packageName = "com.retroarch",
+                downloadUrl = "https://www.retroarch.com/?page=platforms"
+            )
             TargetEmulator.ARMSX2 -> EmulatorConfig(
                 emulatorName = "ARMSX2",
                 packageName = "come.nanodata.armsx2",

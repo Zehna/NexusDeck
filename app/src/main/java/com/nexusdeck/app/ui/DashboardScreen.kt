@@ -812,8 +812,35 @@ fun PosterGameCard(
                 // Status Pill jika sedang diunduh atau sudah terinstal
                 if (gameState !is GameState.NotInstalled) {
                     PosterInstallBadge(gameState = gameState)
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
                 }
+
+                // Dual-Engine Execution Indicator Tag
+                Surface(
+                    shape = RoundedCornerShape(4.dp),
+                    color = if (game.executionMode == com.nexusdeck.app.core.model.EngineExecutionMode.IN_APP_PLAYABLE)
+                        Color(0xFF22C55E).copy(alpha = 0.2f)
+                    else
+                        NexusPalette.PrimaryViolet.copy(alpha = 0.2f)
+                ) {
+                    Text(
+                        text = if (game.executionMode == com.nexusdeck.app.core.model.EngineExecutionMode.IN_APP_PLAYABLE)
+                            "• In-App Playable"
+                        else
+                            "• Native Handoff",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        ),
+                        color = if (game.executionMode == com.nexusdeck.app.core.model.EngineExecutionMode.IN_APP_PLAYABLE)
+                            Color(0xFF22C55E)
+                        else
+                            NexusPalette.SecondaryPurple,
+                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
 
                 Text(
                     text = game.title,

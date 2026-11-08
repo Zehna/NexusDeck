@@ -64,7 +64,7 @@ class AutoTuningEngine {
                         "DXVK 1.10.3"
                     }
                 }
-                GamePlatform.PSP, GamePlatform.PS2, GamePlatform.PS3 -> "N/A (Native Console Pipeline)"
+                else -> "N/A (Native Console Pipeline)"
             }
 
             val cpuDynarecPreset = if (

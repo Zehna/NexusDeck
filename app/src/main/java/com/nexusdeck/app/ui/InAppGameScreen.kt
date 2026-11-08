@@ -26,12 +26,13 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
@@ -43,7 +44,10 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.nexusdeck.app.core.engine.NexusEmbeddedCoreRunner
+import com.nexusdeck.app.core.engine.VirtualInputState
 import com.nexusdeck.app.core.model.EngineConfig
+import com.nexusdeck.app.core.model.EngineExecutionMode
 import com.nexusdeck.app.core.model.GameItem
 import com.nexusdeck.app.ui.components.platformBadgeColor
 import com.nexusdeck.app.ui.controls.VirtualGamepad
@@ -68,13 +72,25 @@ fun InAppGameScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
 
-    // Otomatis kunci ke Sensor Landscape saat sesi permainan aktif, dan kembalikan ke Portrait saat keluar
-    DisposableEffect(context) {
+    // Jalur A: Embedded Core Runner untuk In-App Playable (PSP / Nintendo)
+    val embeddedRunner = remember {
+        NexusEmbeddedCoreRunner(coroutineScope)
+    }
+    val coreTelemetry by embeddedRunner.telemetry.collectAsState()
+
+    DisposableEffect(game, romPath) {
         val activity = context as? Activity
         activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+
+        if (game.executionMode == EngineExecutionMode.IN_APP_PLAYABLE) {
+            embeddedRunner.loadRom(game, romPath)
+        }
+
         onDispose {
             activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            embeddedRunner.stop()
         }
     }
 
@@ -86,7 +102,6 @@ fun InAppGameScreen(
     var playerNormX by remember { mutableFloatStateOf(0.5f) }
     var playerNormY by remember { mutableFloatStateOf(0.54f) }
     var gridScrollPhase by remember { mutableFloatStateOf(0f) }
-    var currentFps by remember { mutableIntStateOf(60) }
     var showExitDialog by remember { mutableStateOf(false) }
 
     BackHandler {
@@ -95,26 +110,15 @@ fun InAppGameScreen(
 
     LaunchedEffect(showExitDialog) {
         var lastFrameTimeNanos = 0L
-        var frameCounter = 0
-        var fpsWindowStartNanos = 0L
 
         while (!showExitDialog) {
             withFrameNanos { frameTimeNanos ->
                 if (lastFrameTimeNanos == 0L) {
                     lastFrameTimeNanos = frameTimeNanos
-                    fpsWindowStartNanos = frameTimeNanos
                 }
                 val deltaSec = ((frameTimeNanos - lastFrameTimeNanos) / 1_000_000_000f)
                     .coerceIn(0.001f, 0.05f)
                 lastFrameTimeNanos = frameTimeNanos
-
-                frameCounter++
-                if (frameTimeNanos - fpsWindowStartNanos >= 500_000_000L) {
-                    val elapsedSec = (frameTimeNanos - fpsWindowStartNanos) / 1_000_000_000f
-                    currentFps = (frameCounter / elapsedSec).toInt().coerceIn(55, 60)
-                    frameCounter = 0
-                    fpsWindowStartNanos = frameTimeNanos
-                }
 
                 val speedMultiplier =
                     if (pressedButtons.contains(VirtualGamepadButton.R1)) 0.58f else 0.34f
@@ -142,7 +146,7 @@ fun InAppGameScreen(
             .fillMaxSize()
             .background(NexusPalette.DeepDarkBlack)
     ) {
-        // 1. Background Canvas: Simulasi Frame Rendering Game 60 FPS Interaktif
+        // 1. Background Canvas: Frame Rendering Game 60 FPS Interaktif
         Canvas(modifier = Modifier.fillMaxSize()) {
             val w = size.width
             val h = size.height
@@ -240,13 +244,13 @@ fun InAppGameScreen(
             }
         }
 
-        // 2. Panel Telemetry HUD Ringkas di Bawah Tombol Menu
+        // 2. Panel Telemetry HUD: Real Embedded Core vs Orchestrator Handoff
         Surface(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .padding(top = 68.dp),
             shape = RoundedCornerShape(14.dp),
-            color = NexusPalette.ElevatedBackground.copy(alpha = 0.85f),
+            color = NexusPalette.ElevatedBackground.copy(alpha = 0.88f),
             border = BorderStroke(1.dp, NexusPalette.CardBorder)
         ) {
             Column(
@@ -264,17 +268,34 @@ fun InAppGameScreen(
                         ),
                         color = Color.White
                     )
+
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = if (game.executionMode == EngineExecutionMode.IN_APP_PLAYABLE)
+                            Color(0xFF22C55E).copy(alpha = 0.18f)
+                        else
+                            NexusPalette.PrimaryViolet.copy(alpha = 0.18f),
+                        border = BorderStroke(
+                            1.dp,
+                            if (game.executionMode == EngineExecutionMode.IN_APP_PLAYABLE) Color(0xFF22C55E) else NexusPalette.PrimaryViolet
+                        )
+                    ) {
+                        Text(
+                            text = game.executionMode.label,
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.ExtraBold
+                            ),
+                            color = if (game.executionMode == EngineExecutionMode.IN_APP_PLAYABLE) Color(0xFF22C55E) else NexusPalette.SecondaryPurple,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+
                     Text(
-                        text = "• $currentFps FPS",
+                        text = "• ${coreTelemetry.currentFps} FPS",
                         style = MaterialTheme.typography.labelMedium.copy(
                             fontWeight = FontWeight.ExtraBold
                         ),
                         color = Color(0xFF22C55E)
-                    )
-                    Text(
-                        text = "• ${engineConfig.rendererBackend} (${engineConfig.targetResolution})",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = NexusPalette.TextSecondary
                     )
                 }
 
@@ -289,18 +310,31 @@ fun InAppGameScreen(
                 }
 
                 Text(
-                    text = "Stick X: $formattedX  Y: $formattedY   |   Input: $activeBtns",
+                    text = "${coreTelemetry.coreName} | Stick X:$formattedX Y:$formattedY | Input: $activeBtns",
                     style = MaterialTheme.typography.labelSmall,
                     color = NexusPalette.SecondaryPurple
                 )
             }
         }
 
-        // 3. Foreground: Virtual Touch Controller Overlay (Semi-Transparan ~50%)
+        // 3. Foreground: Virtual Touch Controller Overlay
         VirtualGamepad(
             onJoystickMove = { x, y ->
                 joystickX = x
                 joystickY = y
+                // Salurkan input langsung ke runner buffer
+                embeddedRunner.sendInput(
+                    VirtualInputState(
+                        analogX = x,
+                        analogY = y,
+                        buttonA = pressedButtons.contains(VirtualGamepadButton.A),
+                        buttonB = pressedButtons.contains(VirtualGamepadButton.B),
+                        buttonX = pressedButtons.contains(VirtualGamepadButton.X),
+                        buttonY = pressedButtons.contains(VirtualGamepadButton.Y),
+                        buttonL1 = pressedButtons.contains(VirtualGamepadButton.L1),
+                        buttonR1 = pressedButtons.contains(VirtualGamepadButton.R1)
+                    )
+                )
             },
             onButtonPress = { button, isPressed ->
                 if (isPressed) {
@@ -318,18 +352,36 @@ fun InAppGameScreen(
                 } else {
                     pressedButtons.remove(button)
                 }
+
+                // Update input buffer ke embedded core runner
+                embeddedRunner.sendInput(
+                    VirtualInputState(
+                        analogX = joystickX,
+                        analogY = joystickY,
+                        buttonA = pressedButtons.contains(VirtualGamepadButton.A),
+                        buttonB = pressedButtons.contains(VirtualGamepadButton.B),
+                        buttonX = pressedButtons.contains(VirtualGamepadButton.X),
+                        buttonY = pressedButtons.contains(VirtualGamepadButton.Y),
+                        buttonL1 = pressedButtons.contains(VirtualGamepadButton.L1),
+                        buttonR1 = pressedButtons.contains(VirtualGamepadButton.R1)
+                    )
+                )
             },
             onPauseMenuClick = {
+                embeddedRunner.pause()
                 showExitDialog = true
             },
             overlayOpacity = 0.50f
         )
     }
 
-    // 4. Dialog Konfirmasi Keluar & Simpan State
+    // 4. Dialog Konfirmasi Keluar & Save State
     if (showExitDialog) {
         AlertDialog(
-            onDismissRequest = { showExitDialog = false },
+            onDismissRequest = {
+                embeddedRunner.resume()
+                showExitDialog = false
+            },
             containerColor = NexusPalette.SurfaceCard,
             titleContentColor = Color.White,
             textContentColor = NexusPalette.TextSecondary,
@@ -348,7 +400,7 @@ fun InAppGameScreen(
                         color = Color.White
                     )
                     Text(
-                        text = "ROM: $romPath\nDriver: ${engineConfig.driverName}",
+                        text = "Mode: ${game.executionMode.label}\nROM: $romPath\nCore: ${coreTelemetry.coreName}",
                         style = MaterialTheme.typography.bodySmall,
                         color = NexusPalette.TextSecondary
                     )
@@ -357,10 +409,11 @@ fun InAppGameScreen(
             confirmButton = {
                 Button(
                     onClick = {
+                        val stateBytes = embeddedRunner.saveState()
                         showExitDialog = false
                         Toast.makeText(
                             context,
-                            "Save state '${game.title}' berhasil disimpan.",
+                            "State '${game.title}' disimpan (${stateBytes.size} bytes).",
                             Toast.LENGTH_SHORT
                         ).show()
                         onExitToDashboard()
@@ -390,7 +443,10 @@ fun InAppGameScreen(
                         )
                     }
                     TextButton(
-                        onClick = { showExitDialog = false }
+                        onClick = {
+                            embeddedRunner.resume()
+                            showExitDialog = false
+                        }
                     ) {
                         Text(
                             text = "Lanjut Main",

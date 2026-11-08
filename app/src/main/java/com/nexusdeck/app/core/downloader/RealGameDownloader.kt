@@ -62,10 +62,7 @@ class RealGameDownloader(private val context: Context) {
             return@flow
         }
 
-        val extension = when (game.platform) {
-            GamePlatform.PC -> "zip"
-            GamePlatform.PSP, GamePlatform.PS2, GamePlatform.PS3 -> "iso"
-        }
+        val extension = game.platform.defaultExtension
         val fileName = "${game.id}.$extension"
         val subPath = "games/${game.platform.name.lowercase()}/$fileName"
         val destinationFile = File(getPlatformGamesDir(game.platform), fileName)
@@ -199,10 +196,7 @@ class RealGameDownloader(private val context: Context) {
      * Membuat file ROM/paket terverifikasi di dalam /games/[platform]/ setelah proses unduhan selesai.
      */
     fun writeVerifiedLocalGameFile(game: GameItem): String {
-        val extension = when (game.platform) {
-            GamePlatform.PC -> "exe"
-            GamePlatform.PSP, GamePlatform.PS2, GamePlatform.PS3 -> "iso"
-        }
+        val extension = game.platform.defaultExtension
         val dir = getPlatformGamesDir(game.platform)
         val file = File(dir, "${game.id}.$extension")
         return try {

@@ -56,6 +56,30 @@ object MockGames {
             downloadUrl = "https://archive.org/download/psp-homebrew-library/nfs_most_wanted_510.iso"
         ),
 
+        // ================= Nintendo / Retro =================
+        GameItem(
+            id = "gba_pokemon_emerald",
+            title = "Pokemon Emerald Version",
+            platform = GamePlatform.NINTENDO,
+            coverUrl = "https://images.unsplash.com/photo-1613770324026-69487fa44b36?auto=format&fit=crop&w=600&q=80",
+            minRamGb = 2,
+            recommendedSocKeywords = listOf("snapdragon_8", "snapdragon_7", "dimensity_8", "helio_g99"),
+            targetEmulator = TargetEmulator.NexusRetroCore,
+            fileSizeLabel = "16 MB",
+            downloadUrl = "https://archive.org/download/nintendo-gba-collection/pokemon_emerald.gba"
+        ),
+        GameItem(
+            id = "gba_super_mario_adv4",
+            title = "Super Mario Advance 4",
+            platform = GamePlatform.NINTENDO,
+            coverUrl = "https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=600&q=80",
+            minRamGb = 2,
+            recommendedSocKeywords = listOf("snapdragon_8", "snapdragon_7", "dimensity_8", "helio_g99"),
+            targetEmulator = TargetEmulator.NexusRetroCore,
+            fileSizeLabel = "8 MB",
+            downloadUrl = "https://archive.org/download/nintendo-gba-collection/super_mario_advance_4.gba"
+        ),
+
         // ================= PS2 =================
         GameItem(
             id = "ps2_resident_evil_4",

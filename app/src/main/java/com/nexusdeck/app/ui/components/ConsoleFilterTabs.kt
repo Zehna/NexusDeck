@@ -32,6 +32,7 @@ enum class CategoryPillFilter(
     ALL("All", null, false),
     CATALOG("Catalog", null, true),
     PSP("PSP", GamePlatform.PSP, false),
+    NINTENDO("Nintendo", GamePlatform.NINTENDO, false),
     PS2("PlayStation 2", GamePlatform.PS2, false),
     PC("PC Games", GamePlatform.PC, false),
     PS3("PlayStation 3", GamePlatform.PS3, false)

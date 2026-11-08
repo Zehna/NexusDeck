@@ -276,6 +276,46 @@ fun GameDetailBottomSheet(
                         }
                     }
 
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Badge Jalur Eksekusi (In-App Playable vs Native Engine Handoff)
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = if (game.executionMode == com.nexusdeck.app.core.model.EngineExecutionMode.IN_APP_PLAYABLE)
+                            Color(0xFF22C55E).copy(alpha = 0.15f)
+                        else
+                            NexusPalette.PrimaryViolet.copy(alpha = 0.15f),
+                        border = BorderStroke(
+                            1.dp,
+                            if (game.executionMode == com.nexusdeck.app.core.model.EngineExecutionMode.IN_APP_PLAYABLE)
+                                Color(0xFF22C55E).copy(alpha = 0.7f)
+                            else
+                                NexusPalette.SecondaryPurple.copy(alpha = 0.7f)
+                        )
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = "⚡ ${game.executionMode.label}",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.ExtraBold
+                                ),
+                                color = if (game.executionMode == com.nexusdeck.app.core.model.EngineExecutionMode.IN_APP_PLAYABLE)
+                                    Color(0xFF22C55E)
+                                else
+                                    NexusPalette.SecondaryPurple
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "• ${game.sourceRepositoryName}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = NexusPalette.TextSecondary
+                            )
+                        }
+                    }
+
                     Spacer(modifier = Modifier.height(10.dp))
 
                     CompatibilityBadge(tier = compatibilityTier)
