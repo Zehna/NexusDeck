@@ -3,6 +3,9 @@ package com.nexusdeck.app
 import android.content.pm.ActivityInfo
 import androidx.compose.ui.graphics.Color
 import com.nexusdeck.app.ui.components.platformBadgeColor
+import com.nexusdeck.app.core.achievements.RetroAchievementItem
+import com.nexusdeck.app.core.achievements.RetroAchievementsService
+import com.nexusdeck.app.core.achievements.RetroGameTrophySummary
 import com.nexusdeck.app.core.downloader.SniffedDownload
 import com.nexusdeck.app.core.downloader.WebAdBlocker
 import com.nexusdeck.app.core.downloader.WebDownloadSniffer
@@ -21,9 +24,13 @@ import com.nexusdeck.app.core.model.GameState
 import com.nexusdeck.app.core.model.HardwareSpec
 import com.nexusdeck.app.core.model.TargetEmulator
 import com.nexusdeck.app.core.optimizer.AutoTuningEngine
+import com.nexusdeck.app.core.optimizer.CompressionAdvisor
+import com.nexusdeck.app.core.optimizer.RomFormatType
 import com.nexusdeck.app.core.profiler.HardwareProfiler
 import com.nexusdeck.app.core.repository.OnlineGameCatalogService
 import com.nexusdeck.app.core.repository.sources.GameRepositorySource
+import com.nexusdeck.app.core.storage.NexusStorageManager
+import com.nexusdeck.app.core.storage.StorageSpaceInfo
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.runBlocking
@@ -837,5 +844,227 @@ class NexusDeckComprehensiveStressTest {
 
         // PS3: Violet Purple (#8B5CF6)
         assertEquals(Color(0xFF8B5CF6), platformBadgeColor(GamePlatform.PS3))
+    }
+
+    // =========================================================================
+    // 6. Custom Storage & MicroSD Manager (SAF Architecture)
+    // =========================================================================
+
+    @Test
+    fun test36_safStorageManager_documentIdPathFormattingAndMicroSdDetection() {
+        // Internal Storage primary: path
+        val internalFormatted = NexusStorageManager.formatDocumentIdToPath("primary:RetroGames/PSP")
+        assertEquals("Penyimpanan Internal: /RetroGames/PSP", internalFormatted)
+
+        val internalRoot = NexusStorageManager.formatDocumentIdToPath("primary:")
+        assertEquals("Penyimpanan Internal: /", internalRoot)
+
+        // MicroSD volume pattern (XXXX-XXXX)
+        val sdFormatted = NexusStorageManager.formatDocumentIdToPath("9C33-6BBD:ROMs/PS2")
+        assertEquals("MicroSD Card (9C33-6BBD): /ROMs/PS2", sdFormatted)
+
+        // MicroSD detection
+        assertTrue(NexusStorageManager.isMicroSdDocumentId("9C33-6BBD:ROMs/PS2"))
+        assertTrue(NexusStorageManager.isMicroSdDocumentId("1234-5678:games"))
+        assertTrue(NexusStorageManager.isMicroSdDocumentId("sdcard1:PSP"))
+        assertFalse(NexusStorageManager.isMicroSdDocumentId("primary:Games"))
+    }
+
+    @Test
+    fun test37_safStorageManager_storageSpaceInfoCalculationsAndPercentages() {
+        val totalBytes = 128L * 1024L * 1024L * 1024L // 128 GB
+        val freeBytes = 64L * 1024L * 1024L * 1024L   // 64 GB
+        val usedBytes = totalBytes - freeBytes
+
+        val info = StorageSpaceInfo(
+            totalBytes = totalBytes,
+            freeBytes = freeBytes,
+            usedBytes = usedBytes,
+            isExternalMicroSd = false,
+            storagePath = "Penyimpanan Internal: /Games"
+        )
+
+        assertEquals(128.0, info.totalGb, 0.01)
+        assertEquals(64.0, info.freeGb, 0.01)
+        assertEquals(64.0, info.usedGb, 0.01)
+        assertEquals(50.0f, info.usedPercent, 0.01f)
+        assertTrue(info.totalStorageFormatted.contains("128.0 GB") || info.totalStorageFormatted.contains("128 GB"))
+        assertTrue(info.freeStorageFormatted.contains("64.0 GB") || info.freeStorageFormatted.contains("64 GB"))
+    }
+
+    @Test
+    fun test38_safStorageManager_minimumFreeStorageThresholdProtection() {
+        // Threshold minimum keamanan adalah 2.5 GB
+        assertEquals(2_500_000_000L, NexusStorageManager.MIN_FREE_STORAGE_THRESHOLD_BYTES)
+
+        // Simulasi kalkulasi format bytes
+        val smallBytes = 500L * 1024L * 1024L // 500 MB
+        val formattedMb = StorageSpaceInfo.formatBytes(smallBytes)
+        assertTrue(formattedMb.contains("500.0 MB") || formattedMb.contains("500 MB"))
+
+        val largeBytes = 10L * 1024L * 1024L * 1024L // 10 GB
+        val formattedGb = StorageSpaceInfo.formatBytes(largeBytes)
+        assertTrue(formattedGb.contains("10.0 GB") || formattedGb.contains("10 GB"))
+    }
+
+    // =========================================================================
+    // 7. Smart ROM Format & Compression Advisor
+    // =========================================================================
+
+    @Test
+    fun test39_compressionAdvisor_rawIsoPs2TriggersChdRecommendation() {
+        // PS2 raw ISO 3.8 GB (> 2.0 GB threshold)
+        val advice = CompressionAdvisor.analyzeGameFormat(
+            platform = GamePlatform.PS2,
+            fileSizeLabelOrBytes = "3.8 GB",
+            fileNameOrExtension = "God_of_War_II.iso"
+        )
+
+        assertTrue("Raw ISO PS2 > 2GB must trigger compression recommendation", advice.shouldRecommend)
+        assertEquals(".CHD", advice.recommendedFormat)
+        assertEquals(55, advice.estimatedSavingsPercent)
+        assertTrue(advice.estimatedCompressedSizeBytes < advice.rawSizeBytes)
+        assertTrue(advice.adviceHeadline.contains("Hemat Storage"))
+        assertTrue(advice.adviceHeadline.contains(".chd"))
+        assertTrue(advice.whyBetter.contains("NetherSX2"))
+    }
+
+    @Test
+    fun test40_compressionAdvisor_rawIsoPspTriggersCsoRecommendation() {
+        // PSP raw ISO 1.2 GB (> 800 MB threshold)
+        val advice = CompressionAdvisor.analyzeGameFormat(
+            platform = GamePlatform.PSP,
+            fileSizeLabelOrBytes = "1.2 GB",
+            fileNameOrExtension = "Tekken_Dark_Resurrection.iso"
+        )
+
+        assertTrue("Raw ISO PSP > 800MB must trigger CSO recommendation", advice.shouldRecommend)
+        assertEquals(".CSO", advice.recommendedFormat)
+        assertEquals(45, advice.estimatedSavingsPercent)
+        assertTrue(advice.adviceHeadline.contains(".cso"))
+        assertTrue(advice.whyBetter.contains("PPSSPP"))
+    }
+
+    @Test
+    fun test41_compressionAdvisor_alreadyCompressedFormatsDoNotRecommend() {
+        // File yang sudah dalam format .chd tidak perlu rekomendasi kompresi ulang
+        val adviceChd = CompressionAdvisor.analyzeGameFormat(
+            platform = GamePlatform.PS2,
+            fileSizeLabelOrBytes = "1.8 GB",
+            fileNameOrExtension = "Persona_4.chd"
+        )
+        assertFalse("Already CHD should not recommend compression", adviceChd.shouldRecommend)
+
+        // File yang sudah dalam format .cso tidak perlu rekomendasi kompresi ulang
+        val adviceCso = CompressionAdvisor.analyzeGameFormat(
+            platform = GamePlatform.PSP,
+            fileSizeLabelOrBytes = "650 MB",
+            fileNameOrExtension = "Crisis_Core.cso"
+        )
+        assertFalse("Already CSO should not recommend compression", adviceCso.shouldRecommend)
+
+        assertTrue(CompressionAdvisor.isCompressedFormat("game.chd"))
+        assertTrue(CompressionAdvisor.isCompressedFormat("game.cso"))
+        assertTrue(CompressionAdvisor.isCompressedFormat("game.zso"))
+        assertTrue(CompressionAdvisor.isCompressedFormat("game.rvz"))
+        assertTrue(CompressionAdvisor.isRawDiscFormat("game.iso"))
+        assertTrue(CompressionAdvisor.isRawDiscFormat("game.bin"))
+    }
+
+    @Test
+    fun test42_compressionAdvisor_headerMagicBytesVerification() {
+        // CHD magic: "MComprHD"
+        assertEquals(RomFormatType.CHD, CompressionAdvisor.detectHeaderMagic(CompressionAdvisor.MAGIC_CHD))
+
+        // CSO magic: "CISO"
+        assertEquals(RomFormatType.CSO, CompressionAdvisor.detectHeaderMagic(CompressionAdvisor.MAGIC_CSO))
+
+        // ZSO magic: "ZISO"
+        assertEquals(RomFormatType.ZSO, CompressionAdvisor.detectHeaderMagic(CompressionAdvisor.MAGIC_ZSO))
+
+        // Random bytes: UNKNOWN
+        val randomBytes = byteArrayOf(0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77)
+        assertEquals(RomFormatType.UNKNOWN, CompressionAdvisor.detectHeaderMagic(randomBytes))
+    }
+
+    // =========================================================================
+    // 8. RetroAchievements REST API & Trophy Integration
+    // =========================================================================
+
+    @Test
+    fun test43_retroAchievements_parseGameInfoJsonMapFormat() {
+        val sampleApiResponse = """
+            {
+              "ID": 1050,
+              "Title": "God of War",
+              "ConsoleName": "PlayStation 2",
+              "NumAchievements": 2,
+              "NumPoints": 35,
+              "Achievements": {
+                "101": {
+                  "ID": 101,
+                  "Title": "Hydra Slayer",
+                  "Description": "Defeat the Hydra on the Aegean Sea",
+                  "Points": 10,
+                  "BadgeName": "10492",
+                  "DateEarned": "2026-05-10 12:00:00"
+                },
+                "102": {
+                  "ID": 102,
+                  "Title": "Blade of Chaos Master",
+                  "Description": "Max out Blades of Chaos",
+                  "Points": 25,
+                  "BadgeName": "10493"
+                }
+              }
+            }
+        """.trimIndent()
+
+        val service = RetroAchievementsService()
+        val summary = service.parseGameInfoResponse(sampleApiResponse)
+
+        assertEquals(1050L, summary.gameId)
+        assertEquals("God of War", summary.gameTitle)
+        assertEquals("PlayStation 2", summary.consoleName)
+        assertEquals(2, summary.totalAchievements)
+        assertEquals(35, summary.totalPoints)
+        assertEquals(1, summary.unlockedCount)
+        assertEquals(10, summary.unlockedPoints)
+
+        // Top achievement (diurutkan berdasarkan poin tertinggi: 25 poin duluan)
+        val top = summary.topAchievements.first()
+        assertEquals("Blade of Chaos Master", top.title)
+        assertEquals(25, top.points)
+        assertEquals("https://media.retroachievements.org/Badge/10493.png", top.badgeUrl)
+    }
+
+    @Test
+    fun test44_retroAchievements_curatedTrophiesAndBadgeUrls() {
+        val service = RetroAchievementsService()
+        val gowSummary = service.getCuratedOrSyntheticTrophies("God of War", GamePlatform.PS2)
+
+        assertEquals(36, gowSummary.totalAchievements)
+        assertEquals(420, gowSummary.totalPoints)
+        assertEquals(3, gowSummary.topAchievements.size)
+        assertTrue(gowSummary.topAchievements.all { it.badgeUrl.startsWith("https://media.retroachievements.org/Badge/") })
+
+        val personaSummary = service.getCuratedOrSyntheticTrophies("Shin Megami Tensei: Persona 4", GamePlatform.PS2)
+        assertEquals(45, personaSummary.totalAchievements)
+        assertEquals(500, personaSummary.totalPoints)
+
+        val badgeUrl = RetroAchievementsService.buildBadgeUrl("12345.png")
+        assertEquals("https://media.retroachievements.org/Badge/12345.png", badgeUrl)
+    }
+
+    @Test
+    fun test45_formatPriorityScore_prioritizesChdAndCsoOverIso() {
+        val chdScore = CompressionAdvisor.getFormatPriorityScore("Final_Fantasy_X.chd")
+        val csoScore = CompressionAdvisor.getFormatPriorityScore("Persona_3_Portable.cso")
+        val isoScore = CompressionAdvisor.getFormatPriorityScore("Tekken_5.iso")
+        val binScore = CompressionAdvisor.getFormatPriorityScore("Crash_Bandicoot.bin")
+
+        assertTrue("CHD score must be higher than ISO", chdScore > isoScore)
+        assertTrue("CSO score must be higher than ISO", csoScore > isoScore)
+        assertTrue("ISO score must be higher than BIN", isoScore > binScore)
     }
 }

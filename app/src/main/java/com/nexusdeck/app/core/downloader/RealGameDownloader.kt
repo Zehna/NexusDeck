@@ -6,6 +6,8 @@ import android.database.Cursor
 import android.net.Uri
 import com.nexusdeck.app.core.model.GameItem
 import com.nexusdeck.app.core.model.GamePlatform
+import com.nexusdeck.app.core.optimizer.CompressionAdvisor
+import com.nexusdeck.app.core.storage.NexusStorageManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -38,24 +40,29 @@ class RealGameDownloader(private val context: Context) {
 
     /**
      * Mengembalikan direktori penyimpanan lokal /games/[platform]/ milik aplikasi NexusDeck.
+     * Menggunakan NexusStorageManager (mendukung Internal Storage & MicroSD SAF).
      */
     fun getPlatformGamesDir(platform: GamePlatform): File {
-        val baseDir = context.getExternalFilesDir(null) ?: context.filesDir
-        val dir = File(baseDir, "games/${platform.name.lowercase()}")
-        if (!dir.exists()) {
-            dir.mkdirs()
-        }
-        return dir
+        return NexusStorageManager.getPlatformGamesDir(context, platform)
     }
 
     /**
      * Mengunduh file game dari URL HTTP/HTTPS ke folder /games/[platform]/ milik NexusDeck
-     * menggunakan android.app.DownloadManager, lengkap dengan pembacaan persentase unduhan riil.
+     * menggunakan android.app.DownloadManager, lengkap dengan proteksi ambang batas memori aman (2.5 GB)
+     * dan pembacaan persentase unduhan riil.
      */
     fun downloadGameFile(
         game: GameItem,
         downloadUrl: String
     ): Flow<RealDownloadProgress> = flow {
+        // Proteksi Ruang Penyimpanan: Periksa apakah sisa storage mencukupi (ambang batas aman minimum 2.5 GB)
+        val estimatedSizeBytes = CompressionAdvisor.parseSizeBytes(game.fileSizeLabel)
+        val safetyCheck = NexusStorageManager.checkStorageSafety(context, estimatedSizeBytes)
+        if (!safetyCheck.isSafe) {
+            emit(RealDownloadProgress.Failed(safetyCheck.message))
+            return@flow
+        }
+
         val manager = downloadManager
         if (manager == null || downloadUrl.isBlank()) {
             emit(RealDownloadProgress.Failed("DownloadManager atau URL tidak tersedia."))

@@ -4,6 +4,8 @@ import android.webkit.WebResourceResponse
 import com.nexusdeck.app.core.model.GameItem
 import com.nexusdeck.app.core.model.GamePlatform
 import com.nexusdeck.app.core.model.TargetEmulator
+import com.nexusdeck.app.core.optimizer.CompressionAdvice
+import com.nexusdeck.app.core.optimizer.CompressionAdvisor
 import java.io.ByteArrayInputStream
 import java.net.URLDecoder
 import java.util.Locale
@@ -22,6 +24,9 @@ data class SniffedDownload(
     val contentLength: Long = 0L,
     val mimeType: String = ""
 ) {
+    val compressionAdvice: CompressionAdvice
+        get() = CompressionAdvisor.analyzeGameFormat(platform, fileSizeLabel, fileName)
+
     fun toGameItem(uniqueId: String? = null): GameItem {
         val cleanTitle = cleanTitleFromFilename(fileName)
         val id = uniqueId ?: "web_${platform.name.lowercase(Locale.US)}_${System.currentTimeMillis()}"

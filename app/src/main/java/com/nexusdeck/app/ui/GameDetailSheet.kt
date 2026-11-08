@@ -61,6 +61,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.nexusdeck.app.core.achievements.RetroAchievementsService
+import com.nexusdeck.app.core.achievements.RetroGameTrophySummary
 import com.nexusdeck.app.core.launcher.LauncherResult
 import com.nexusdeck.app.core.model.CompatibilityTier
 import com.nexusdeck.app.core.model.EngineConfig
@@ -69,6 +71,8 @@ import com.nexusdeck.app.core.model.GamePlatform
 import com.nexusdeck.app.core.model.GameState
 import com.nexusdeck.app.core.model.HardwareSpec
 import com.nexusdeck.app.core.optimizer.AutoTuningEngine
+import com.nexusdeck.app.core.optimizer.CompressionAdvice
+import com.nexusdeck.app.core.optimizer.CompressionAdvisor
 import com.nexusdeck.app.ui.components.EngineInstallerDialog
 import com.nexusdeck.app.ui.components.GameCoverArt
 import com.nexusdeck.app.ui.components.platformBadgeColor
@@ -89,6 +93,7 @@ fun GameDetailBottomSheet(
     onDismiss: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val context = LocalContext.current
     var autoTuneActive by remember(game.id) { mutableStateOf(true) }
 
     val optimalConfig = remember(hardwareSpec, game) {
@@ -99,6 +104,13 @@ fun GameDetailBottomSheet(
     }
     val activeEngineConfig = if (autoTuneActive) optimalConfig else stockConfig
     val platformAccent = platformBadgeColor(game.platform)
+
+    val compressionAdvice = remember(game) {
+        CompressionAdvisor.analyzeGameFormat(game.platform, game.fileSizeLabel, game.platform.defaultExtension)
+    }
+    val trophySummary = remember(game) {
+        RetroAchievementsService(context).getCuratedOrSyntheticTrophies(game.title, game.platform)
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -334,6 +346,16 @@ fun GameDetailBottomSheet(
                 onAutoTuneToggle = { autoTuneActive = it }
             )
 
+            // Kartu 💡 Rekomendasi Format & Kompresi Cerdas (.chd / .cso)
+            if (compressionAdvice.shouldRecommend) {
+                Spacer(modifier = Modifier.height(14.dp))
+                StorageCompressionAdvisorCard(advice = compressionAdvice)
+            }
+
+            // Section 🏆 RetroAchievements Trofi & Poin
+            Spacer(modifier = Modifier.height(14.dp))
+            RetroAchievementsTrophyPanel(summary = trophySummary)
+
             Spacer(modifier = Modifier.height(18.dp))
 
             // Area Tombol Aksi Dinamis (One-Click Direct Web Download / Play)
@@ -493,6 +515,174 @@ private fun TuningParamChip(
                 ),
                 color = if (highlighted) Color.White else NexusPalette.TextSecondary
             )
+        }
+    }
+}
+
+@Composable
+private fun StorageCompressionAdvisorCard(
+    advice: CompressionAdvice,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = Color(0xFF141320),
+        border = BorderStroke(1.dp, NexusPalette.NeonCyan.copy(alpha = 0.5f))
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(text = "💡", fontSize = 16.sp)
+                Text(
+                    text = advice.adviceHeadline,
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                    color = NexusPalette.NeonCyan,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = advice.detailedMessage,
+                style = MaterialTheme.typography.bodySmall,
+                color = NexusPalette.TextSecondary
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = NexusPalette.NeonCyan.copy(alpha = 0.15f),
+                    border = BorderStroke(1.dp, NexusPalette.NeonCyan.copy(alpha = 0.4f))
+                ) {
+                    Text(
+                        text = "Hemat ~${advice.estimatedSavingsPercent}% (${advice.formattedSavings})",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        color = NexusPalette.NeonCyan,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+                Text(
+                    text = "Rekomendasi format: ${advice.recommendedFormat}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = NexusPalette.TextMuted
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun RetroAchievementsTrophyPanel(
+    summary: RetroGameTrophySummary,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = NexusPalette.SurfaceCard,
+        border = BorderStroke(1.dp, Color(0xFFF59E0B).copy(alpha = 0.35f))
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(text = "🏆", fontSize = 16.sp)
+                    Text(
+                        text = "RetroAchievements",
+                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold),
+                        color = Color.White
+                    )
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color(0xFFF59E0B).copy(alpha = 0.15f),
+                    border = BorderStroke(1.dp, Color(0xFFF59E0B).copy(alpha = 0.5f))
+                ) {
+                    Text(
+                        text = "${summary.totalAchievements} Trofi • ${summary.totalPoints} Poin",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        color = Color(0xFFF59E0B),
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Preview 3 Trofi Teratas
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                summary.topAchievements.forEach { trophy ->
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color(0xFF13121A),
+                        border = BorderStroke(1.dp, Color(0xFF262438)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        if (trophy.isUnlocked) Color(0xFFF59E0B).copy(alpha = 0.2f)
+                                        else Color(0xFF262438)
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = if (trophy.isUnlocked) "⭐" else "🔒",
+                                    fontSize = 14.sp
+                                )
+                            }
+
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = trophy.title,
+                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = Color.White
+                                )
+                                if (trophy.description.isNotBlank()) {
+                                    Text(
+                                        text = trophy.description,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = NexusPalette.TextSecondary,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = Color(0xFF232135)
+                            ) {
+                                Text(
+                                    text = "+${trophy.points} PTS",
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = Color(0xFFF59E0B),
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }

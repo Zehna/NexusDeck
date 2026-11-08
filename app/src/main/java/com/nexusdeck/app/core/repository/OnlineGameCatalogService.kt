@@ -2,6 +2,7 @@ package com.nexusdeck.app.core.repository
 
 import com.nexusdeck.app.core.model.GameItem
 import com.nexusdeck.app.core.model.GamePlatform
+import com.nexusdeck.app.core.optimizer.CompressionAdvisor
 import com.nexusdeck.app.core.repository.sources.ArchiveOrgSource
 import com.nexusdeck.app.core.repository.sources.FreewarePcSource
 import com.nexusdeck.app.core.repository.sources.GameRepositorySource
@@ -76,7 +77,14 @@ class OnlineGameCatalogService(
             fallback.forEach { combinedResults[it.id] = it }
         }
 
-        emit(combinedResults.values.toList())
+        // 4. Prioritaskan format modern hemat memori (.chd / .cso) di atas format mentah (.iso)
+        val sortedResults = combinedResults.values.sortedWith(
+            compareByDescending<GameItem> {
+                CompressionAdvisor.getFormatPriorityScore(it.downloadUrl.ifEmpty { it.title })
+            }.thenByDescending { !it.isWebResult }
+        )
+
+        emit(sortedResults)
     }.flowOn(Dispatchers.IO)
 
     /**

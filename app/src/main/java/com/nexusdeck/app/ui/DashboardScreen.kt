@@ -111,6 +111,7 @@ import com.nexusdeck.app.ui.components.EmptyStateView
 import com.nexusdeck.app.ui.components.HeroSpotlightCarousel
 import com.nexusdeck.app.ui.components.ShimmerPosterCard
 import com.nexusdeck.app.ui.components.shimmerPlaceholder
+import com.nexusdeck.app.ui.settings.SettingsScreen
 import com.nexusdeck.app.ui.theme.NexusPalette
 import com.nexusdeck.app.core.engine.EngineManager
 import kotlinx.coroutines.delay
@@ -357,7 +358,7 @@ fun DashboardScreen(
             Spacer(modifier = Modifier.height(14.dp))
 
             if (selectedBottomTab == NexusBottomTab.SETTINGS) {
-                SettingsTabContent(
+                SettingsScreen(
                     hardwareSpec = hardwareSpec,
                     installedCount = installedCount,
                     modifier = Modifier.weight(1f)
@@ -1249,157 +1250,6 @@ private fun EmptyTabPlaceholder(
 }
 
 @Composable
-private fun SettingsTabContent(
-    hardwareSpec: HardwareSpec,
-    installedCount: Int,
-    modifier: Modifier = Modifier
-) {
-    var turnipCustomDriver by remember {
-        mutableStateOf(hardwareSpec.gpuModel.contains("adreno", ignoreCase = true))
-    }
-    var asyncShaderCache by remember { mutableStateOf(true) }
-    var sustainedThermalMode by remember { mutableStateOf(true) }
-
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .verticalScroll(rememberScrollState())
-            .padding(bottom = 110.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        // Kartu Profil Hardware Terdeteksi
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            color = NexusPalette.SurfaceCard,
-            border = BorderStroke(1.dp, NexusPalette.CardBorder)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = "Hardware Profiler Diagnostics",
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.ExtraBold
-                    ),
-                    color = Color.White
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-                SettingInfoRow("SoC / Chipset", hardwareSpec.socModel)
-                SettingInfoRow("GPU Renderer", hardwareSpec.gpuModel)
-                SettingInfoRow("System Memory (RAM)", "${hardwareSpec.totalRamGb} GB")
-                SettingInfoRow("Graphics API", hardwareSpec.vulkanVersion)
-                SettingInfoRow("Installed ROMs", "$installedCount Games (/games/[platform]/)")
-            }
-        }
-
-        // Kartu Pengaturan Driver Turnip & Engine
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            color = NexusPalette.SurfaceCard,
-            border = BorderStroke(1.dp, NexusPalette.CardBorder)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = "Driver & Auto-Tuning Engine",
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.ExtraBold
-                    ),
-                    color = Color.White
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-
-                SettingToggleRow(
-                    title = "Mesa Turnip v24.2.0 Custom Driver",
-                    subtitle = "Gunakan driver Vulkan kustom untuk GPU Adreno",
-                    checked = turnipCustomDriver,
-                    onCheckedChange = { turnipCustomDriver = it }
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                SettingToggleRow(
-                    title = "DXVK 2.3.1 Async Shader Pipeline",
-                    subtitle = "Eliminasi stutter kompilasi shader pada game PC & PS3",
-                    checked = asyncShaderCache,
-                    onCheckedChange = { asyncShaderCache = it }
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                SettingToggleRow(
-                    title = "Smart Thermal Frame Pacing",
-                    subtitle = "Jaga suhu perangkat tetap stabil pada sesi bermain panjang",
-                    checked = sustainedThermalMode,
-                    onCheckedChange = { sustainedThermalMode = it }
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun SettingInfoRow(label: String, value: String) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = NexusPalette.TextSecondary
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyMedium.copy(
-                fontWeight = FontWeight.Bold
-            ),
-            color = Color.White
-        )
-    }
-}
-
-@Composable
-private fun SettingToggleRow(
-    title: String,
-    subtitle: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.labelLarge.copy(
-                    fontWeight = FontWeight.Bold
-                ),
-                color = Color.White
-            )
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.labelSmall,
-                color = NexusPalette.TextSecondary
-            )
-        }
-        Switch(
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = Color.White,
-                checkedTrackColor = NexusPalette.PrimaryViolet,
-                uncheckedThumbColor = NexusPalette.TextSecondary,
-                uncheckedTrackColor = NexusPalette.ElevatedBackground
-            )
-        )
-    }
-}
-
-@Composable
 fun CompatibilityBadge(
     tier: CompatibilityTier,
     modifier: Modifier = Modifier
@@ -1533,6 +1383,30 @@ fun SniffedGameDownloadDialog(
                                 text = "•  ${sniffed.targetEmulator.displayName}",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = NexusPalette.TextMuted
+                            )
+                        }
+                    }
+                }
+
+                // Banner Rekomendasi Hemat Storage (.chd / .cso) jika file raw ISO besar
+                if (sniffed.compressionAdvice.shouldRecommend) {
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color(0xFF141320),
+                        border = BorderStroke(1.dp, NexusPalette.NeonCyan.copy(alpha = 0.5f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(10.dp)) {
+                            Text(
+                                text = sniffed.compressionAdvice.adviceHeadline,
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                color = NexusPalette.NeonCyan
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Format ${sniffed.compressionAdvice.recommendedFormat} menghemat ~${sniffed.compressionAdvice.estimatedSavingsPercent}% penyimpanan (${sniffed.compressionAdvice.formattedSavings}) tanpa penurunan kualitas grafis.",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = NexusPalette.TextSecondary
                             )
                         }
                     }
