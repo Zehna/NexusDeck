@@ -148,6 +148,7 @@ object CompressionAdvisor {
 
         val isRaw = isRawDiscFormat(ext) || ext.isEmpty()
         val (thresholdBytes, recommendedExt, savingsPercent) = when (platform) {
+            GamePlatform.PS1 -> Triple(400_000_000L, ".chd", 55) // 55% rata-rata hemat untuk CD PS1
             GamePlatform.PS2 -> Triple(THRESHOLD_PS2_RAW_BYTES, ".chd", 55) // 55% rata-rata hemat
             GamePlatform.PSP -> Triple(THRESHOLD_PSP_RAW_BYTES, ".cso", 45) // 45% rata-rata hemat
             GamePlatform.NINTENDO -> Triple(1_500_000_000L, ".chd / .rvz", 50)

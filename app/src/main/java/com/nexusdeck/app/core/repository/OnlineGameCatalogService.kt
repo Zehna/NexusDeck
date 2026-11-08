@@ -135,6 +135,7 @@ class OnlineGameCatalogService(
                 minRamGb = if (resolvedPlatform == GamePlatform.PS2) 4 else 3,
                 recommendedSocKeywords = listOf("snapdragon_8", "snapdragon_7", "dimensity_8"),
                 targetEmulator = when (resolvedPlatform) {
+                    GamePlatform.PS1 -> com.nexusdeck.app.core.model.TargetEmulator.DuckStation
                     GamePlatform.NINTENDO -> com.nexusdeck.app.core.model.TargetEmulator.Lemuroid
                     GamePlatform.PSP -> com.nexusdeck.app.core.model.TargetEmulator.PPSSPP
                     GamePlatform.PS2 -> com.nexusdeck.app.core.model.TargetEmulator.ARMSX2

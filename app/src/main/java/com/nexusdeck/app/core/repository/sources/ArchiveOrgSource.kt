@@ -27,12 +27,13 @@ class ArchiveOrgSource : GameRepositorySource {
         limit: Int
     ): List<GameItem> = withContext(Dispatchers.IO) {
         val platformClause = when (platform) {
+            GamePlatform.PS1 -> "(title:(PS1) OR title:(PSX) OR subject:(PS1) OR subject:(PSX) OR subject:(\"PlayStation\"))"
             GamePlatform.PSP -> "(title:(PSP) OR subject:(PSP) OR description:(\"PlayStation Portable\"))"
             GamePlatform.NINTENDO -> "(subject:(Nintendo) OR subject:(GBA) OR subject:(\"Game Boy Advance\") OR subject:(SNES))"
             GamePlatform.PS2 -> "(title:(PS2) OR subject:(PS2) OR subject:(\"PlayStation 2\"))"
             GamePlatform.PC -> "(mediatype:(software) AND (subject:(Windows) OR subject:(PC) OR subject:(DOS)))"
             GamePlatform.PS3 -> "(title:(PS3) OR subject:(PS3) OR subject:(\"PlayStation 3\"))"
-            null -> "(subject:(PSP) OR subject:(Nintendo) OR subject:(PS2) OR subject:(\"PlayStation 2\") OR subject:(Windows) OR subject:(PS3))"
+            null -> "(subject:(PSP) OR subject:(Nintendo) OR subject:(PS1) OR subject:(PS2) OR subject:(\"PlayStation 2\") OR subject:(Windows) OR subject:(PS3))"
         }
 
         val fullQuery = if (query.isNotBlank()) {
@@ -224,6 +225,7 @@ class ArchiveOrgSource : GameRepositorySource {
     private fun formatFileSize(sizeBytes: Long, platform: GamePlatform): String {
         if (sizeBytes <= 0L) {
             return when (platform) {
+                GamePlatform.PS1 -> "540 MB"
                 GamePlatform.NINTENDO -> "32 MB"
                 GamePlatform.PSP -> "840 MB"
                 GamePlatform.PS2 -> "2.65 GB"
@@ -249,6 +251,7 @@ class ArchiveOrgSource : GameRepositorySource {
         downloadUrl: String
     ): GameItem {
         val (minRam, targetEmulator) = when (platform) {
+            GamePlatform.PS1 -> 2 to TargetEmulator.DuckStation
             GamePlatform.NINTENDO -> 2 to TargetEmulator.Lemuroid
             GamePlatform.PSP -> 3 to TargetEmulator.PPSSPP
             GamePlatform.PS2 -> 4 to TargetEmulator.ARMSX2
