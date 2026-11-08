@@ -1,9 +1,9 @@
 package com.nexusdeck.app.core.engine
 
-import android.util.Base64
 import com.nexusdeck.app.core.model.GameItem
 import com.nexusdeck.app.core.model.GamePlatform
 import java.io.File
+import java.util.Base64
 import java.util.Locale
 
 /**
@@ -49,7 +49,7 @@ object EmulatorJsEngine {
             if (file.length() <= 35L * 1024L * 1024L) {
                 try {
                     val bytes = file.readBytes()
-                    val b64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
+                    val b64 = Base64.getEncoder().encodeToString(bytes)
                     return "data:application/octet-stream;base64,$b64"
                 } catch (_: Exception) {
                 }

@@ -297,7 +297,7 @@ fun InAppGameScreen(
         if (showExitDialog) {
             AlertDialog(
                 onDismissRequest = { showExitDialog = false },
-                containerColor = NexusPalette.SurfaceDark,
+                containerColor = NexusPalette.SurfaceCard,
                 title = {
                     Text(
                         text = "Keluar dari Game?",
@@ -317,7 +317,7 @@ fun InAppGameScreen(
                             showExitDialog = false
                             onExitToDashboard()
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = NexusPalette.NeonRed)
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444))
                     ) {
                         Text("Keluar", color = Color.White, fontWeight = FontWeight.Bold)
                     }

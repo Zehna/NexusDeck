@@ -81,6 +81,7 @@ import com.nexusdeck.app.core.launcher.LauncherResult
 import com.nexusdeck.app.core.manager.GameInstallManager
 import com.nexusdeck.app.core.model.CompatibilityTier
 import com.nexusdeck.app.core.model.EngineConfig
+import com.nexusdeck.app.core.model.EngineExecutionMode
 import com.nexusdeck.app.core.model.GameItem
 import com.nexusdeck.app.core.model.GameState
 import com.nexusdeck.app.core.model.HardwareSpec
