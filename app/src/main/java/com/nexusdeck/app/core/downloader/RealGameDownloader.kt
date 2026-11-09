@@ -103,6 +103,20 @@ class RealGameDownloader(private val context: Context) {
             return File(base, tempFileName(game))
         }
 
+        /**
+         * True bila file ZIP hasil unduhan harus diekstrak untuk mengambil
+         * ROM di dalamnya. Hanya berlaku untuk ROM yang dikemas dalam ZIP
+         * (mis. entri Myrient No-Intro/Redump). Game PC (ekstensi "zip")
+         * TIDAK diekstrak: ZIP-nya sendiri adalah paket game-nya (mis.
+         * Freedoom berisi .wad, OpenTTD berisi .exe/data) — mencari entri
+         * ".zip" di dalamnya selalu gagal dan memunculkan error palsu
+         * "File ZIP tidak berisi ROM .zip yang valid" padahal unduhan
+         * 42 MB-nya sudah sukses.
+         */
+        fun shouldExtractZip(game: GameItem): Boolean {
+            return game.platform != GamePlatform.PC
+        }
+
         /** True bila 4 byte pertama file adalah magic ZIP (PK\x03\x04 / PK\x05\x06). */
         fun isZipFile(file: File): Boolean {
             if (!file.exists() || !file.isFile || file.length() < 4L) return false
@@ -407,18 +421,20 @@ class RealGameDownloader(private val context: Context) {
                         DownloadManager.STATUS_SUCCESSFUL -> {
                             // The file DownloadManager wrote is the ONLY file
                             // we may validate and return. If it is a ZIP
-                            // (mis. entri Myrient No-Intro/Redump), ekstrak
-                            // dulu ROM di dalamnya; tanpa unzip, file .zip
-                            // akan tersimpan sebagai .gba/.iso dan emulator
-                            // tidak akan bisa memuatnya. Validate the
-                            // extracted file, then MOVE it to the public
-                            // games dir when writable; if the move fails,
-                            // return the app-private path that actually
-                            // exists — never a path to a file that does not
-                            // exist.
+                            // holding a ROM (mis. entri Myrient No-Intro/
+                            // Redump), ekstrak dulu ROM di dalamnya; tanpa
+                            // unzip, file .zip akan tersimpan sebagai
+                            // .gba/.iso dan emulator tidak akan bisa
+                            // memuatnya. Game PC dikecualikan (lihat
+                            // shouldExtractZip): ZIP-nya sendiri adalah
+                            // paket game-nya. Validate the extracted (or
+                            // kept) file, then MOVE it to the public games
+                            // dir when writable; if the move fails, return
+                            // the app-private path that actually exists —
+                            // never a path to a file that does not exist.
                             var downloadedFile = downloadManagerDestination
                             val minimumBytes = minimumDownloadBytes(game)
-                            if (downloadedFile != null && downloadedFile.exists() && isZipFile(downloadedFile)) {
+                            if (downloadedFile != null && downloadedFile.exists() && shouldExtractZip(game) && isZipFile(downloadedFile)) {
                                 val extracted = extractRomFromZip(
                                     downloadedFile,
                                     extension,
