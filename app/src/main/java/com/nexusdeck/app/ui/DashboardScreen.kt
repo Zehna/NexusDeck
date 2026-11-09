@@ -77,6 +77,10 @@ import androidx.compose.ui.unit.sp
 import com.nexusdeck.app.NexusDeckTheme
 import com.nexusdeck.app.core.launcher.GameLauncher
 import com.nexusdeck.app.core.bios.BiosManager
+import com.nexusdeck.app.core.catalog.health.CatalogHealthChecker
+import com.nexusdeck.app.core.catalog.health.CatalogHealthStore
+import com.nexusdeck.app.core.catalog.health.filterVisibleGames
+import com.nexusdeck.app.core.catalog.health.formatLastChecked
 import com.nexusdeck.app.core.downloader.SniffedDownload
 import com.nexusdeck.app.core.launcher.LauncherResult
 import com.nexusdeck.app.core.manager.GameInstallManager
@@ -136,10 +140,28 @@ fun DashboardScreen(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
-    val installManager = remember(context) {
-        GameInstallManager(context, coroutineScope)
+    // v1.1.9 — katalog yang menyeleksi sendiri: store kesehatan tautan
+    // (cache + snapshot CI), pemeriksa latar, dan toggle "tampilkan yang
+    // tidak tersedia". Store dibuat dari context aplikasi supaya tetap
+    // hidup selama aplikasi berjalan.
+    val healthStore = remember(context) { CatalogHealthStore(context) }
+    val healthSnapshot by healthStore.snapshot.collectAsState()
+    val showUnavailable by healthStore.showUnavailable.collectAsState()
+    val healthChecker = remember(healthStore) { CatalogHealthChecker(healthStore) }
+    val isRefreshingHealth by healthChecker.isRefreshing.collectAsState()
+
+    val installManager = remember(context, healthStore) {
+        GameInstallManager(context, coroutineScope, healthStore = healthStore)
     }
     val onlineCatalogService = remember { OnlineGameCatalogService() }
+
+    // Muat snapshot bawaan (ditulis CI harian) bila belum ada cache, lalu
+    // periksa tautan katalog unggulan yang sudah basi — tanpa memblokir
+    // tampilan awal: grid tetap tampil dari cache / NOT_CHECKED.
+    LaunchedEffect(Unit) {
+        healthStore.loadBundledSnapshotIfEmpty()
+        healthChecker.refresh(MockGames.catalog, staleOnly = true)
+    }
 
     val gameStates by installManager.gameStates.collectAsState()
     val savedLibraryGames by installManager.savedLibraryGames.collectAsState()
@@ -298,6 +320,11 @@ fun DashboardScreen(
             liveCatalogGames.clear()
             liveCatalogGames.addAll(results)
             isLoadingOnline = false
+            // Periksa tautan hasil pencarian yang sudah basi di latar —
+            // grid diperbarui bertahap begitu tiap putusan mendarat di store.
+            coroutineScope.launch {
+                healthChecker.refresh(results, staleOnly = true)
+            }
         }
     }
 
@@ -349,7 +376,9 @@ fun DashboardScreen(
         liveCatalogGames.toList(),
         savedLibraryGames,
         favoriteIds,
-        gameStates
+        gameStates,
+        healthSnapshot,
+        showUnavailable
     ) {
         when (selectedBottomTab) {
             NexusBottomTab.HOME -> {
@@ -359,7 +388,17 @@ fun DashboardScreen(
                     liveCatalogGames.forEach { allKnown[it.id] = it }
                     allKnown.values.filter { it.id in favoriteIds }
                 } else {
-                    liveCatalogGames.toList()
+                    // v1.1.9 — game yang tautannya terkonfirmasi mati (DEAD)
+                    // disembunyikan dari grid default; game yang belum
+                    // diperiksa atau tidak jelas statusnya tetap tampil.
+                    // Game yang sudah terpasang (tab Library/Favorit) tidak
+                    // difilter — kesehatannya tidak relevan, filenya sudah
+                    // ada di perangkat.
+                    filterVisibleGames(
+                        liveCatalogGames.toList(),
+                        healthSnapshot,
+                        showUnavailable
+                    )
                 }
             }
             NexusBottomTab.FAVORITES -> {
@@ -468,6 +507,56 @@ fun DashboardScreen(
                     )
 
                     Spacer(modifier = Modifier.height(14.dp))
+
+                    // v1.1.9 — baris kesehatan katalog: toggle untuk
+                    // menampilkan game yang tidak tersedia (redup, tombol
+                    // unduh nonaktif) + kapan terakhir tautan diperiksa +
+                    // tombol periksa ulang manual.
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "Tampilkan yang tidak tersedia",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Switch(
+                                checked = showUnavailable,
+                                onCheckedChange = { healthStore.setShowUnavailable(it) }
+                            )
+                        }
+                        TextButton(
+                            onClick = {
+                                coroutineScope.launch {
+                                    healthChecker.refresh(
+                                        liveCatalogGames.toList(),
+                                        staleOnly = true
+                                    )
+                                }
+                            },
+                            enabled = !isRefreshingHealth
+                        ) {
+                            Text(
+                                text = if (isRefreshingHealth) {
+                                    "Memeriksa…"
+                                } else {
+                                    "Diperiksa ${
+                                        formatLastChecked(
+                                            healthSnapshot?.lastCheckedAtEpochMs,
+                                            System.currentTimeMillis()
+                                        )
+                                    }"
+                                },
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
                 } else {
                     SectionTabBanner(
                         tab = selectedBottomTab,

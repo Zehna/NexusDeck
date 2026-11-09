@@ -6,7 +6,6 @@ import com.nexusdeck.app.core.optimizer.CompressionAdvisor
 import com.nexusdeck.app.core.repository.sources.ArchiveOrgSource
 import com.nexusdeck.app.core.repository.sources.FreewarePcSource
 import com.nexusdeck.app.core.repository.sources.GameRepositorySource
-import com.nexusdeck.app.core.repository.sources.MyrientMirrorSource
 import com.nexusdeck.app.data.MockGames
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -17,8 +16,13 @@ import kotlinx.coroutines.withContext
 class OnlineGameCatalogService(
     val sources: List<GameRepositorySource> = listOf(
         ArchiveOrgSource(),
-        MyrientMirrorSource(),
         FreewarePcSource()
+        // v1.1.9 — MyrientMirrorSource DIKARANTINA: Myrient tutup pada
+        // 31 Maret 2026 (semua URL-nya kini membalas halaman penutup,
+        // bukan file). Sumbernya tetap ada di kode untuk arsip, tapi
+        // tidak lagi didaftarkan sebagai sumber aktif — game-game Myrient
+        // tidak boleh muncul di katalog sampai ada mirror pengganti yang
+        // terverifikasi menyediakan unduhan HTTP langsung.
     )
 ) {
 
@@ -51,7 +55,6 @@ class OnlineGameCatalogService(
         val matchingSources = sources.filter { it.supportsPlatform(platform) }
             .sortedBy { it.priority }
 
-        var anySourceSucceeded = false
         for (source in matchingSources) {
             try {
                 val sourceItems = source.search(
@@ -61,7 +64,6 @@ class OnlineGameCatalogService(
                     limit = 12
                 )
                 if (sourceItems.isNotEmpty()) {
-                    anySourceSucceeded = true
                     sourceItems.forEach { item ->
                         combinedResults[item.id] = item
                     }
@@ -71,11 +73,12 @@ class OnlineGameCatalogService(
             }
         }
 
-        // 3. Fallback sintetis jika seluruh remote mirror sedang offline
-        if (!anySourceSucceeded && combinedResults.isEmpty() && cleanQuery.isNotEmpty()) {
-            val fallback = buildFallbackItems(cleanQuery, platform, page)
-            fallback.forEach { combinedResults[it.id] = it }
-        }
+        // v1.1.9 — TIDAK ADA fallback sintetis lagi. Versi lama membuat
+        // entri game palsu ("Failover Web Mirror") dengan URL archive.org
+        // yang ditebak-nebak (`.../download/$slug/$slug.iso`) — persis
+        // yang dilarang aturan katalog: kalau game-nya tidak ada, jangan
+        // dibuat ada. Bila semua mirror offline, hasil pencarian kosong
+        // dan UI menampilkan empty state, bukan game bohongan.
 
         // 4. Prioritaskan format modern hemat memori (.chd / .cso) di atas format mentah (.iso)
         val sortedResults = combinedResults.values.sortedWith(
@@ -115,38 +118,5 @@ class OnlineGameCatalogService(
         }
 
         combinedResults.values.toList()
-    }
-
-    private fun buildFallbackItems(
-        query: String,
-        platform: GamePlatform?,
-        page: Int
-    ): List<GameItem> {
-        val resolvedPlatform = platform ?: GamePlatform.PSP
-        val slug = query.lowercase().replace(Regex("[^a-z0-9]+"), "_")
-        val formattedTitle = query.replaceFirstChar { it.uppercase() }
-
-        return listOf(
-            GameItem(
-                id = "mirror_${slug}_${resolvedPlatform.name.lowercase()}_p$page",
-                title = "$formattedTitle (Failover Web Mirror)",
-                platform = resolvedPlatform,
-                coverUrl = "",
-                minRamGb = if (resolvedPlatform == GamePlatform.PS2) 4 else 3,
-                recommendedSocKeywords = listOf("snapdragon_8", "snapdragon_7", "dimensity_8"),
-                targetEmulator = when (resolvedPlatform) {
-                    GamePlatform.PS1 -> com.nexusdeck.app.core.model.TargetEmulator.DuckStation
-                    GamePlatform.NINTENDO -> com.nexusdeck.app.core.model.TargetEmulator.Lemuroid
-                    GamePlatform.PSP -> com.nexusdeck.app.core.model.TargetEmulator.PPSSPP
-                    GamePlatform.PS2 -> com.nexusdeck.app.core.model.TargetEmulator.ARMSX2
-                    GamePlatform.PC -> com.nexusdeck.app.core.model.TargetEmulator.GameNative
-                    GamePlatform.PS3 -> com.nexusdeck.app.core.model.TargetEmulator.ARMSX3
-                },
-                fileSizeLabel = if (resolvedPlatform == GamePlatform.NINTENDO) "32 MB" else "780 MB",
-                downloadUrl = "https://archive.org/download/$slug/$slug.iso",
-                isWebResult = true,
-                sourceRepositoryName = "Failover Mirror Hub"
-            )
-        )
     }
 }

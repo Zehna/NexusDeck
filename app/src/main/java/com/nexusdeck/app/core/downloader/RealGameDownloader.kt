@@ -288,7 +288,8 @@ class RealGameDownloader(private val context: Context) {
      */
     fun downloadGameFile(
         game: GameItem,
-        downloadUrl: String
+        downloadUrl: String,
+        onLinkCheck: ((LinkCheckResult) -> Unit)? = null
     ): Flow<RealDownloadProgress> = flow {
         // Proteksi Ruang Penyimpanan: Periksa apakah sisa storage mencukupi (ambang batas aman minimum 2.5 GB)
         val estimatedSizeBytes = CompressionAdvisor.parseSizeBytes(game.fileSizeLabel)
@@ -312,6 +313,11 @@ class RealGameDownloader(private val context: Context) {
         // DownloadManager stuck dengan totalBytes = -1 dan user hanya
         // mendapat pesan samar "tidak ada progres".
         val linkCheck = LinkVerifier.verify(downloadUrl, minimumDownloadBytes(game))
+        // v1.1.9 — laporkan hasil pre-flight ke pemeriksa katalog (bila ada
+        // yang mendengarkan): unduhan yang lolos membuktikan tautan itu
+        // hidup, unduhan yang ditolak 404/HTML terhitung sebagai satu
+        // kegagalan keras untuk game itu.
+        onLinkCheck?.invoke(linkCheck)
         if (!linkCheck.ok) {
             emit(RealDownloadProgress.Failed(linkCheck.reason))
             return@flow

@@ -1,6 +1,7 @@
 package com.nexusdeck.app
 
 import com.nexusdeck.app.core.downloader.LinkVerifier
+import com.nexusdeck.app.core.downloader.LinkVerifier.LinkVerdict
 import com.nexusdeck.app.core.downloader.RealGameDownloader
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -50,6 +51,259 @@ class LinkVerifierTest {
         )
         assertTrue(result.ok)
         assertEquals(200, result.httpStatus)
+    }
+
+    // ---------- LinkVerifier.evaluateHeadersDetailed (v1.1.9) ----------
+    // Tabel putusan §5: hanya bukti keras (404/410, HTML terkonfirmasi,
+    // file terlalu kecil) yang jadi Dead; semua yang lain yang bukan
+    // Alive jadi Unknown — satu 503 tidak boleh menyembunyikan game.
+
+    @Test
+    fun testDetailed_404_isDead() {
+        val verdict = LinkVerifier.evaluateHeadersDetailed(
+            url = "https://example.com/files/game.chd",
+            httpStatus = 404,
+            contentType = null,
+            contentLength = -1L,
+            minBytes = 1024L * 1024L,
+            htmlConfirmed = false,
+            retryAfterSeconds = null
+        )
+        assertTrue(verdict is LinkVerdict.Dead)
+        assertEquals("http-404", (verdict as LinkVerdict.Dead).reason)
+    }
+
+    @Test
+    fun testDetailed_410_isDead() {
+        val verdict = LinkVerifier.evaluateHeadersDetailed(
+            url = "https://example.com/files/game.chd",
+            httpStatus = 410,
+            contentType = null,
+            contentLength = -1L,
+            minBytes = 1024L * 1024L,
+            htmlConfirmed = false,
+            retryAfterSeconds = null
+        )
+        assertTrue(verdict is LinkVerdict.Dead)
+        assertEquals("http-410", (verdict as LinkVerdict.Dead).reason)
+    }
+
+    @Test
+    fun testDetailed_503_isUnknownWithRetryAfter() {
+        val verdict = LinkVerifier.evaluateHeadersDetailed(
+            url = "https://example.com/files/game.chd",
+            httpStatus = 503,
+            contentType = "text/html",
+            contentLength = 1024L,
+            minBytes = 1024L * 1024L,
+            htmlConfirmed = false,
+            retryAfterSeconds = 120L
+        )
+        assertTrue(verdict is LinkVerdict.Unknown)
+        val unknown = verdict as LinkVerdict.Unknown
+        assertEquals("http-503", unknown.reason)
+        assertEquals(120L, unknown.retryAfterSeconds)
+    }
+
+    @Test
+    fun testDetailed_429_isUnknown() {
+        val verdict = LinkVerifier.evaluateHeadersDetailed(
+            url = "https://example.com/files/game.chd",
+            httpStatus = 429,
+            contentType = null,
+            contentLength = -1L,
+            minBytes = 1024L * 1024L,
+            htmlConfirmed = false,
+            retryAfterSeconds = 30L
+        )
+        assertTrue(verdict is LinkVerdict.Unknown)
+    }
+
+    @Test
+    fun testDetailed_401_and_403_areUnknown() {
+        for (status in listOf(401, 403)) {
+            val verdict = LinkVerifier.evaluateHeadersDetailed(
+                url = "https://example.com/files/game.chd",
+                httpStatus = status,
+                contentType = null,
+                contentLength = -1L,
+                minBytes = 1024L * 1024L,
+                htmlConfirmed = false,
+                retryAfterSeconds = null
+            )
+            assertTrue("status $status harus Unknown", verdict is LinkVerdict.Unknown)
+        }
+    }
+
+    @Test
+    fun testDetailed_405_isUnknownHeadUnsupported() {
+        val verdict = LinkVerifier.evaluateHeadersDetailed(
+            url = "https://example.com/files/game.chd",
+            httpStatus = 405,
+            contentType = null,
+            contentLength = -1L,
+            minBytes = 1024L * 1024L,
+            htmlConfirmed = false,
+            retryAfterSeconds = null
+        )
+        assertTrue(verdict is LinkVerdict.Unknown)
+        assertEquals("head-tidak-didukung", (verdict as LinkVerdict.Unknown).reason)
+    }
+
+    @Test
+    fun testDetailed_htmlConfirmed_isDead() {
+        val verdict = LinkVerifier.evaluateHeadersDetailed(
+            url = "https://example.com/files/game.zip",
+            httpStatus = 200,
+            contentType = "text/html; charset=utf-8",
+            contentLength = 42L * 1024L,
+            minBytes = 256L * 1024L,
+            htmlConfirmed = true,
+            retryAfterSeconds = null
+        )
+        assertTrue(verdict is LinkVerdict.Dead)
+        assertEquals("html-landing", (verdict as LinkVerdict.Dead).reason)
+    }
+
+    @Test
+    fun testDetailed_htmlUnconfirmed_isUnknown() {
+        // HEAD saja bilang text/html, tapi probe belum mengonfirmasi —
+        // bisa jadi redirector unduhan; jangan langsung Dead.
+        val verdict = LinkVerifier.evaluateHeadersDetailed(
+            url = "https://example.com/files/game.zip",
+            httpStatus = 200,
+            contentType = "text/html; charset=utf-8",
+            contentLength = 42L * 1024L,
+            minBytes = 256L * 1024L,
+            htmlConfirmed = false,
+            retryAfterSeconds = null
+        )
+        assertTrue(verdict is LinkVerdict.Unknown)
+        assertEquals("html-perlu-konfirmasi", (verdict as LinkVerdict.Unknown).reason)
+    }
+
+    @Test
+    fun testDetailed_validBinary_isAlive() {
+        val verdict = LinkVerifier.evaluateHeadersDetailed(
+            url = "https://example.com/files/game.chd",
+            httpStatus = 200,
+            contentType = "application/octet-stream",
+            contentLength = 24_121_671L,
+            minBytes = 1024L * 1024L,
+            htmlConfirmed = false,
+            retryAfterSeconds = null
+        )
+        assertTrue(verdict is LinkVerdict.Alive)
+        val alive = verdict as LinkVerdict.Alive
+        assertEquals(200, alive.httpStatus)
+        assertEquals(24_121_671L, alive.contentLength)
+        assertEquals("https://example.com/files/game.chd", alive.finalUrl)
+    }
+
+    @Test
+    fun testDetailed_partial206_isAlive() {
+        val verdict = LinkVerifier.evaluateHeadersDetailed(
+            url = "https://example.com/files/game.chd",
+            httpStatus = 206,
+            contentType = "application/octet-stream",
+            contentLength = 512L,
+            minBytes = 1024L * 1024L,
+            htmlConfirmed = false,
+            retryAfterSeconds = null
+        )
+        // 206 adalah jawaban Range probe; Content-Length-nya hanya
+        // 512 byte probe, jadi aturan minimum tidak berlaku di sini —
+        // verdict tetap Alive karena header-nya valid.
+        assertTrue(verdict is LinkVerdict.Alive)
+    }
+
+    @Test
+    fun testDetailed_tooSmallFile_isDead() {
+        val verdict = LinkVerifier.evaluateHeadersDetailed(
+            url = "https://example.com/files/game.chd",
+            httpStatus = 200,
+            contentType = "application/octet-stream",
+            contentLength = 1024L,
+            minBytes = 1024L * 1024L,
+            htmlConfirmed = false,
+            retryAfterSeconds = null
+        )
+        assertTrue(verdict is LinkVerdict.Dead)
+        assertEquals("file-terlalu-kecil", (verdict as LinkVerdict.Dead).reason)
+    }
+
+    @Test
+    fun testDetailed_blankUrl_isDead() {
+        val verdict = LinkVerifier.evaluateHeadersDetailed(
+            url = "",
+            httpStatus = -1,
+            contentType = null,
+            contentLength = -1L,
+            minBytes = 1024L * 1024L,
+            htmlConfirmed = false,
+            retryAfterSeconds = null
+        )
+        assertTrue(verdict is LinkVerdict.Dead)
+        assertEquals("url-kosong", (verdict as LinkVerdict.Dead).reason)
+    }
+
+    @Test
+    fun testDetailed_directoryUrl_isDead() {
+        val verdict = LinkVerifier.evaluateHeadersDetailed(
+            url = "https://example.com/files/",
+            httpStatus = 200,
+            contentType = "text/html",
+            contentLength = 2048L,
+            minBytes = 1024L * 1024L,
+            htmlConfirmed = false,
+            retryAfterSeconds = null
+        )
+        assertTrue(verdict is LinkVerdict.Dead)
+        assertEquals("direktori", (verdict as LinkVerdict.Dead).reason)
+    }
+
+    @Test
+    fun testDetailed_unreachable_isUnknown() {
+        val verdict = LinkVerifier.evaluateHeadersDetailed(
+            url = "https://example.com/files/game.chd",
+            httpStatus = -1,
+            contentType = null,
+            contentLength = -1L,
+            minBytes = 1024L * 1024L,
+            htmlConfirmed = false,
+            retryAfterSeconds = null
+        )
+        assertTrue(verdict is LinkVerdict.Unknown)
+        assertEquals("tidak-terjangkau", (verdict as LinkVerdict.Unknown).reason)
+    }
+
+    @Test
+    fun testEvaluateHeaders_tekkenReplacementLink_isOk() {
+        // v1.1.8: item ps1-chd-collection dihapus; pengganti dari
+        // ps1-rip-chd-ck terverifikasi (HTTP 200, application/octet-stream,
+        // 24.121.671 byte, magic CHD "MComprHD").
+        val result = LinkVerifier.evaluateHeaders(
+            url = "https://archive.org/download/ps1-rip-chd-ck/Tekken%203.chd",
+            httpStatus = 200,
+            contentType = "application/octet-stream",
+            contentLength = 24121671L,
+            minBytes = 1024L * 1024L
+        )
+        assertTrue(result.ok)
+    }
+
+    @Test
+    fun testEvaluateHeaders_castlevaniaReplacementLink_isOk() {
+        // v1.1.8: pengganti Castlevania dari ps1-rip-chd-ck terverifikasi
+        // (HTTP 200, application/octet-stream, 57.488.209 byte, magic CHD).
+        val result = LinkVerifier.evaluateHeaders(
+            url = "https://archive.org/download/ps1-rip-chd-ck/Castlevania%20-%20Symphony%20Of%20The%20Night.chd",
+            httpStatus = 200,
+            contentType = "application/octet-stream",
+            contentLength = 57488209L,
+            minBytes = 1024L * 1024L
+        )
+        assertTrue(result.ok)
     }
 
     @Test

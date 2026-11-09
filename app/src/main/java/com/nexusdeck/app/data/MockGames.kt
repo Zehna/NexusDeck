@@ -41,8 +41,14 @@ object MockGames {
             minRamGb = 2,
             recommendedSocKeywords = listOf("snapdragon_8", "snapdragon_7", "dimensity_8", "helio_g99"),
             targetEmulator = TargetEmulator.DuckStation,
-            fileSizeLabel = "445 MB",
-            downloadUrl = "https://archive.org/download/ps1-chd-collection/castlevania_sotn.chd"
+            // v1.1.8: item lama ps1-chd-collection DIHAPUS archive.org
+            // (metadata {} + 404). Pengganti terverifikasi 2026-11-09:
+            // ps1-rip-chd-ck "Castlevania - Symphony Of The Night.chd",
+            // 57.488.209 byte, magic CHD "MComprHD", HTTP 200
+            // application/octet-stream. Rip ini videonya dibuang
+            // (55 MB, bukan 445 MB).
+            fileSizeLabel = "55 MB",
+            downloadUrl = "https://archive.org/download/ps1-rip-chd-ck/Castlevania%20-%20Symphony%20Of%20The%20Night.chd"
         ),
         GameItem(
             id = "ps1_tekken_3",
@@ -52,8 +58,16 @@ object MockGames {
             minRamGb = 2,
             recommendedSocKeywords = listOf("snapdragon_8", "snapdragon_7", "dimensity_8", "helio_g99"),
             targetEmulator = TargetEmulator.DuckStation,
-            fileSizeLabel = "480 MB",
-            downloadUrl = "https://archive.org/download/ps1-chd-collection/tekken_3.chd"
+            // v1.1.8: item lama ps1-chd-collection DIHAPUS archive.org
+            // (metadata {} + 404). Pengganti terverifikasi 2026-11-09:
+            // ps1-rip-chd-ck "Tekken 3.chd", 24.121.671 byte, magic CHD
+            // "MComprHD", HTTP 200 application/octet-stream. CATATAN:
+            // rip ini videonya dibuang (23 MB, bukan ~438 MB);
+            // deskripsi item-nya sendiri memperingatkan game bisa
+            // black-screen kalau intro yang dihapus tidak di-skip
+            // (solusinya spam tombol sampai layar skor muncul).
+            fileSizeLabel = "23 MB",
+            downloadUrl = "https://archive.org/download/ps1-rip-chd-ck/Tekken%203.chd"
         ),
 
         // ================= PSP =================

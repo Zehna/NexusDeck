@@ -137,7 +137,12 @@ object LinkVerifier {
                 "Tautan mengarah ke halaman web (Content-Type: $type), bukan file game biner."
             )
         }
-        if (contentLength >= 0L && contentLength < minBytes) {
+        // v1.1.9 — batas minimum hanya berlaku untuk 200: pada jawaban
+        // 206 (Range), Content-Length adalah ukuran rentang yang
+        // dikembalikan (mis. 512 byte probe), bukan ukuran file.
+        if (httpStatus == HttpURLConnection.HTTP_OK &&
+            contentLength >= 0L && contentLength < minBytes
+        ) {
             return fail(
                 httpStatus,
                 "Ukuran file yang dilaporkan server ($contentLength byte) di bawah batas minimum " +
@@ -154,6 +159,244 @@ object LinkVerifier {
     }
 
     /**
+     * Putusan berjenjang untuk katalog yang menyeleksi sendiri (v1.1.9).
+     * Bedakan bukti keras dari ketiadaan bukti:
+     * - [Alive]: server membuktikan file biner memang ada di URL itu.
+     * - [Dead]: bukti keras file TIDAK ada — 404/410, halaman HTML yang
+     *   terkonfirmasi oleh probe, atau file yang dilaporkan server terlalu
+     *   kecil untuk jadi game. Hanya putusan ini yang boleh menyembunyikan
+     *   game dari katalog, dan itupun setelah konfirmasi (lihat
+     *   `mergeHealth` di `core/catalog/health/LinkHealth.kt`).
+     * - [Unknown]: tidak ada bukti ke arah mana pun — 429/5xx/timeout,
+     *   401/403 (auth/bot-gate), atau HEAD yang tidak didukung server.
+     *   Unknown tidak pernah menyembunyikan apa pun.
+     */
+    sealed interface LinkVerdict {
+        data class Alive(
+            val httpStatus: Int,
+            val contentLength: Long?,
+            val finalUrl: String
+        ) : LinkVerdict
+
+        data class Dead(
+            val httpStatus: Int?,
+            val reason: String,
+            val finalUrl: String?
+        ) : LinkVerdict
+
+        data class Unknown(
+            val httpStatus: Int?,
+            val reason: String,
+            val retryAfterSeconds: Long?
+        ) : LinkVerdict
+    }
+
+    /**
+     * Putusan murni dari header HTTP + hasil probe HTML — tanpa jaringan,
+     * sehingga bisa diuji unit. Mengimplementasikan tabel putusan §5 dari
+     * riset katalog yang menyeleksi sendiri (v1.1.9):
+     *
+     * - 404/410 → Dead. 429/5xx/timeout → Unknown. 401/403 → Unknown.
+     * - 405/501 (HEAD tidak didukung) → Unknown; pemanggil jaringan sudah
+     *   mencoba GET Range terlebih dahulu, jadi status ini berarti Range
+     *   pun ditolak.
+     * - 200 dengan Content-Type bertipe text → Dead hanya bila [htmlConfirmed]
+     *   (probe 512 byte membuktikan isinya HTML); tanpa konfirmasi probe
+     *   → Unknown, karena sebagian host melayani unduhan lewat redirector
+     *   yang menjawab HEAD dengan Content-Type generik.
+     * - Content-Length di bawah [minBytes] → Dead (file corrupt/dummy).
+     * - Kode lain yang bukan 200/206 → Unknown (konservatif: hanya bukti
+     *   keras yang boleh jadi Dead).
+     */
+    fun evaluateHeadersDetailed(
+        url: String,
+        httpStatus: Int,
+        contentType: String?,
+        contentLength: Long,
+        minBytes: Long,
+        htmlConfirmed: Boolean,
+        retryAfterSeconds: Long?
+    ): LinkVerdict {
+        if (url.isBlank()) {
+            return LinkVerdict.Dead(httpStatus, "url-kosong", null)
+        }
+        val path = try {
+            URL(url).path
+        } catch (_: Exception) {
+            return LinkVerdict.Dead(httpStatus, "url-tidak-valid", null)
+        }
+        if (path.endsWith("/")) {
+            return LinkVerdict.Dead(httpStatus, "direktori", url)
+        }
+        if (httpStatus == -1) {
+            return LinkVerdict.Unknown(-1, "tidak-terjangkau", null)
+        }
+        if (httpStatus == HttpURLConnection.HTTP_NOT_FOUND ||
+            httpStatus == HttpURLConnection.HTTP_GONE
+        ) {
+            return LinkVerdict.Dead(httpStatus, "http-$httpStatus", url)
+        }
+        if (httpStatus == 429 || httpStatus in 500..599) {
+            return LinkVerdict.Unknown(httpStatus, "http-$httpStatus", retryAfterSeconds)
+        }
+        if (httpStatus == HttpURLConnection.HTTP_UNAUTHORIZED ||
+            httpStatus == HttpURLConnection.HTTP_FORBIDDEN
+        ) {
+            return LinkVerdict.Unknown(httpStatus, "http-$httpStatus", null)
+        }
+        if (httpStatus == HttpURLConnection.HTTP_BAD_METHOD ||
+            httpStatus == HttpURLConnection.HTTP_NOT_IMPLEMENTED
+        ) {
+            return LinkVerdict.Unknown(httpStatus, "head-tidak-didukung", null)
+        }
+        if (httpStatus != HttpURLConnection.HTTP_OK &&
+            httpStatus != HttpURLConnection.HTTP_PARTIAL
+        ) {
+            return LinkVerdict.Unknown(httpStatus, "http-$httpStatus", null)
+        }
+        val type = contentType?.trim()?.lowercase()?.substringBefore(";")?.trim()
+        if (type != null && (type == "text/html" || type.startsWith("text/"))) {
+            return if (htmlConfirmed) {
+                LinkVerdict.Dead(httpStatus, "html-landing", url)
+            } else {
+                LinkVerdict.Unknown(httpStatus, "html-perlu-konfirmasi", null)
+            }
+        }
+        // Batas minimum hanya berlaku untuk 200: pada jawaban 206 (Range),
+        // Content-Length adalah ukuran rentang yang dikembalikan (mis. 512
+        // byte probe), bukan ukuran file — membandingkannya dengan batas
+        // minimum akan salah menolak server yang menolak HEAD.
+        if (httpStatus == HttpURLConnection.HTTP_OK &&
+            contentLength >= 0L && contentLength < minBytes
+        ) {
+            return LinkVerdict.Dead(httpStatus, "file-terlalu-kecil", url)
+        }
+        if (type != null && type !in BINARY_CONTENT_TYPES && !type.startsWith("application/")) {
+            return LinkVerdict.Unknown(httpStatus, "tipe-tidak-dikenali", null)
+        }
+        return LinkVerdict.Alive(
+            httpStatus,
+            if (httpStatus == HttpURLConnection.HTTP_OK && contentLength >= 0L) {
+                contentLength
+            } else {
+                null
+            },
+            url
+        )
+    }
+
+    /**
+     * Hasil mentah satu kali pengambilan tautan — dipakai bersama oleh
+     * [verify] (gerbang unduhan) dan [verifyDetailed] (pemeriksa katalog)
+     * supaya keduanya selalu menilai dengan data jaringan yang sama.
+     */
+    private data class FetchedLink(
+        val httpStatus: Int,
+        val contentType: String?,
+        val contentLength: Long,
+        val finalUrl: String,
+        val retryAfterSeconds: Long?,
+        val htmlConfirmed: Boolean,
+        val transportError: String?,
+        val transportErrorIsIo: Boolean
+    )
+
+    /**
+     * Mengambil header + probe 512 byte pertama dari satu URL: HEAD dengan
+     * redirect manual (maks. 5), fallback ke GET Range bila server menolak
+     * HEAD (405/501), lalu probe untuk memastikan isinya bukan halaman HTML.
+     * Tidak pernah melempar — kegagalan transport dilaporkan lewat
+     * [FetchedLink.transportError].
+     */
+    private suspend fun fetchLink(url: String): FetchedLink = withContext(Dispatchers.IO) {
+        try {
+            var currentUrl = url
+            var status = -1
+            var contentType: String? = null
+            var contentLength = -1L
+            var retryAfterSeconds: Long? = null
+            var redirects = 0
+            var connection: HttpURLConnection? = null
+            try {
+                // Putaran 1: HEAD, ikuti redirect secara manual agar
+                // URL akhir tercatat.
+                while (redirects <= MAX_REDIRECTS) {
+                    connection = (URL(currentUrl).openConnection() as HttpURLConnection).apply {
+                        requestMethod = "HEAD"
+                        connectTimeout = CONNECT_TIMEOUT_MS
+                        readTimeout = READ_TIMEOUT_MS
+                        instanceFollowRedirects = false
+                        setRequestProperty("User-Agent", "NexusDeck-LinkVerifier/1.1.6")
+                    }
+                    status = connection.responseCode
+                    if (status in 301..308) {
+                        val location = connection.getHeaderField("Location")
+                        connection.disconnect()
+                        connection = null
+                        if (location.isNullOrBlank()) break
+                        currentUrl = URL(URL(currentUrl), location).toString()
+                        redirects++
+                        continue
+                    }
+                    break
+                }
+                if (connection == null) {
+                    return@withContext FetchedLink(
+                        status, null, -1L, url, null, false, null, false
+                    )
+                }
+                // Server yang menolak HEAD (405/501): coba GET Range.
+                if (status == HttpURLConnection.HTTP_BAD_METHOD ||
+                    status == HttpURLConnection.HTTP_NOT_IMPLEMENTED
+                ) {
+                    connection.disconnect()
+                    connection = (URL(currentUrl).openConnection() as HttpURLConnection).apply {
+                        requestMethod = "GET"
+                        connectTimeout = CONNECT_TIMEOUT_MS
+                        readTimeout = READ_TIMEOUT_MS
+                        instanceFollowRedirects = true
+                        setRequestProperty("Range", "bytes=0-${PROBE_BYTES - 1}")
+                        setRequestProperty("User-Agent", "NexusDeck-LinkVerifier/1.1.6")
+                    }
+                    status = connection.responseCode
+                }
+                contentType = connection.contentType
+                contentLength = connection.contentLengthLong
+                retryAfterSeconds = connection.getHeaderField("Retry-After")
+                    ?.trim()?.toLongOrNull()
+            } finally {
+                connection?.disconnect()
+            }
+
+            // Putaran 2: probe 512 byte pertama — halaman error yang lolos
+            // sebagai 200 dengan Content-Type generik tertangkap di sini
+            // lewat magic HTML. Hanya relevan bila server mengklaim 200/206.
+            var htmlConfirmed = false
+            if (status == HttpURLConnection.HTTP_OK ||
+                status == HttpURLConnection.HTTP_PARTIAL
+            ) {
+                val sample = probeFirstBytes(currentUrl)
+                htmlConfirmed = sample != null &&
+                    RealGameDownloader.isHtmlRedirectHeader(sample)
+            }
+            FetchedLink(
+                status, contentType, contentLength, currentUrl,
+                retryAfterSeconds, htmlConfirmed, null, false
+            )
+        } catch (e: IOException) {
+            FetchedLink(
+                -1, null, -1L, url, null, false,
+                e.message ?: "kesalahan jaringan", true
+            )
+        } catch (e: Exception) {
+            FetchedLink(
+                -1, null, -1L, url, null, false,
+                e.message ?: "kesalahan tak dikenal", false
+            )
+        }
+    }
+
+    /**
      * Verifikasi satu URL lewat jaringan: HEAD (fallback ke GET Range bila
      * server menolak HEAD), ikuti redirect, lalu baca 512 byte pertama
      * untuk memastikan isinya bukan halaman HTML.
@@ -163,93 +406,65 @@ object LinkVerifier {
             if (url.isBlank()) {
                 return@withContext evaluateHeaders(url, -1, null, -1L, minBytes)
             }
-            try {
-                var currentUrl = url
-                var status = -1
-                var contentType: String? = null
-                var contentLength = -1L
-                var redirects = 0
-                var connection: HttpURLConnection? = null
-                try {
-                    // Putaran 1: HEAD, ikuti redirect secara manual agar
-                    // URL akhir tercatat.
-                    while (redirects <= MAX_REDIRECTS) {
-                        connection = (URL(currentUrl).openConnection() as HttpURLConnection).apply {
-                            requestMethod = "HEAD"
-                            connectTimeout = CONNECT_TIMEOUT_MS
-                            readTimeout = READ_TIMEOUT_MS
-                            instanceFollowRedirects = false
-                            setRequestProperty("User-Agent", "NexusDeck-LinkVerifier/1.1.6")
-                        }
-                        status = connection.responseCode
-                        if (status in 301..308) {
-                            val location = connection.getHeaderField("Location")
-                            connection.disconnect()
-                            connection = null
-                            if (location.isNullOrBlank()) break
-                            currentUrl = URL(URL(currentUrl), location).toString()
-                            redirects++
-                            continue
-                        }
-                        break
-                    }
-                    if (connection == null) {
-                        return@withContext evaluateHeaders(url, status, null, -1L, minBytes)
-                    }
-                    // Server yang menolak HEAD (405/501): coba GET Range.
-                    if (status == HttpURLConnection.HTTP_BAD_METHOD ||
-                        status == HttpURLConnection.HTTP_NOT_IMPLEMENTED
-                    ) {
-                        connection.disconnect()
-                        connection = (URL(currentUrl).openConnection() as HttpURLConnection).apply {
-                            requestMethod = "GET"
-                            connectTimeout = CONNECT_TIMEOUT_MS
-                            readTimeout = READ_TIMEOUT_MS
-                            instanceFollowRedirects = true
-                            setRequestProperty("Range", "bytes=0-${PROBE_BYTES - 1}")
-                            setRequestProperty("User-Agent", "NexusDeck-LinkVerifier/1.1.6")
-                        }
-                        status = connection.responseCode
-                    }
-                    contentType = connection.contentType
-                    contentLength = connection.contentLengthLong
-                } finally {
-                    connection?.disconnect()
-                }
-
-                val headerResult = evaluateHeaders(currentUrl, status, contentType, contentLength, minBytes)
-                if (!headerResult.ok) return@withContext headerResult
-
-                // Putaran 2: probe 512 byte pertama — halaman error yang
-                // lolos sebagai 200 dengan Content-Type generik tertangkap
-                // di sini lewat magic HTML.
-                val sample = probeFirstBytes(currentUrl)
-                if (sample != null && RealGameDownloader.isHtmlRedirectHeader(sample)) {
-                    return@withContext headerResult.copy(
-                        ok = false,
-                        reason = "Server mengembalikan halaman web, bukan file game biner."
-                    )
-                }
-                return@withContext headerResult
-            } catch (e: IOException) {
+            val fetched = fetchLink(url)
+            if (fetched.transportError != null) {
                 return@withContext LinkCheckResult(
                     ok = false,
                     httpStatus = -1,
                     contentType = null,
                     contentLength = -1L,
                     finalUrl = url,
-                    reason = "Tidak dapat menjangkau server unduhan (${e.message ?: "kesalahan jaringan"})."
-                )
-            } catch (e: Exception) {
-                return@withContext LinkCheckResult(
-                    ok = false,
-                    httpStatus = -1,
-                    contentType = null,
-                    contentLength = -1L,
-                    finalUrl = url,
-                    reason = "Verifikasi tautan gagal (${e.message ?: "kesalahan tak dikenal"})."
+                    reason = if (fetched.transportErrorIsIo) {
+                        "Tidak dapat menjangkau server unduhan (${fetched.transportError})."
+                    } else {
+                        "Verifikasi tautan gagal (${fetched.transportError})."
+                    }
                 )
             }
+            val headerResult = evaluateHeaders(
+                fetched.finalUrl,
+                fetched.httpStatus,
+                fetched.contentType,
+                fetched.contentLength,
+                minBytes
+            )
+            if (!headerResult.ok) return@withContext headerResult
+            if (fetched.htmlConfirmed) {
+                return@withContext headerResult.copy(
+                    ok = false,
+                    reason = "Server mengembalikan halaman web, bukan file game biner."
+                )
+            }
+            return@withContext headerResult
+        }
+
+    /**
+     * Varian [verify] yang mengembalikan putusan berjenjang (v1.1.9) untuk
+     * pemeriksa katalog — jaringan yang sama, pemetaan yang membedakan
+     * bukti keras (Dead) dari ketiadaan bukti (Unknown).
+     */
+    suspend fun verifyDetailed(url: String, minBytes: Long): LinkVerdict =
+        withContext(Dispatchers.IO) {
+            if (url.isBlank()) {
+                return@withContext evaluateHeadersDetailed(
+                    url, -1, null, -1L, minBytes, false, null
+                )
+            }
+            val fetched = fetchLink(url)
+            if (fetched.transportError != null) {
+                return@withContext LinkVerdict.Unknown(
+                    -1, "tidak-terjangkau", null
+                )
+            }
+            return@withContext evaluateHeadersDetailed(
+                fetched.finalUrl,
+                fetched.httpStatus,
+                fetched.contentType,
+                fetched.contentLength,
+                minBytes,
+                fetched.htmlConfirmed,
+                fetched.retryAfterSeconds
+            )
         }
 
     private fun probeFirstBytes(url: String): ByteArray? {

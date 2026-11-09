@@ -2,6 +2,7 @@ package com.nexusdeck.app.core.manager
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.nexusdeck.app.core.catalog.health.CatalogHealthStore
 import com.nexusdeck.app.core.downloader.RealGameDownloader
 import com.nexusdeck.app.core.model.GameItem
 import com.nexusdeck.app.core.model.GamePlatform
@@ -27,7 +28,8 @@ data class AutoPlayEvent(
 
 class GameInstallManager(
     context: Context,
-    private val coroutineScope: CoroutineScope
+    private val coroutineScope: CoroutineScope,
+    private val healthStore: CatalogHealthStore? = null
 ) {
     private val appContext = context.applicationContext
     private val prefs: SharedPreferences =
@@ -183,7 +185,16 @@ class GameInstallManager(
             // 2. Unduhan nyata via DownloadManager — progresnya adalah
             // progres unduhan yang sebenarnya, bukan animasi.
             try {
-                realDownloader.downloadGameFile(game, game.downloadUrl).collect { progress ->
+                realDownloader.downloadGameFile(
+                    game,
+                    game.downloadUrl,
+                    // v1.1.9 — hasil pre-flight gerbang unduhan dicatat ke
+                    // snapshot kesehatan katalog (lihat CatalogHealthStore):
+                    // 404/HTML = satu kegagalan keras, lolos = ALIVE.
+                    onLinkCheck = { result ->
+                        healthStore?.recordLinkCheck(game.id, result)
+                    }
+                ).collect { progress ->
                     when (progress) {
                         is com.nexusdeck.app.core.downloader.RealDownloadProgress.InProgress -> {
                             updateGameState(game.id, GameState.Downloading(progress = progress.progress))
