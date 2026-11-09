@@ -52,7 +52,7 @@ object GameLauncher {
      * serta extras spesifik untuk booting langsung ke game pada target emulator:
      * - PPSSPP: SHORTCUT_PATH & bootPath
      * - NetherSX2 / AetherSX2: bootPath & source
-     * - Lime3DS: GamePath
+     * - Lime3DS / Azahar: GamePath
      * - GameNative / Winlator: game_path & container_id
      * - melonDS / Sudachi: Intent ACTION_VIEW dengan URI ROM
      */
@@ -148,7 +148,10 @@ object GameLauncher {
                         putExtra("firmwarePath", fwFile.absolutePath)
                     }
                 }
-                resolvedPackage.contains("lime3ds") || resolvedPackage.contains("citra") -> {
+                // Azahar adalah penerus Lime3DS (package org.azahar_emu.azahar);
+                // keluarga Citra memakai extra "GamePath" yang sama.
+                resolvedPackage.contains("lime3ds") || resolvedPackage.contains("citra") ||
+                    resolvedPackage.contains("azahar") -> {
                     putExtra("GamePath", romPath)
                 }
                 resolvedPackage.contains("gamenative") || resolvedPackage.contains("winlator") -> {

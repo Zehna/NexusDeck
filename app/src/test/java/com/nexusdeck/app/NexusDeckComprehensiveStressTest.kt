@@ -12,6 +12,7 @@ import com.nexusdeck.app.core.downloader.SniffedDownload
 import com.nexusdeck.app.core.downloader.WebAdBlocker
 import com.nexusdeck.app.core.downloader.WebDownloadSniffer
 import com.nexusdeck.app.core.engine.EmulatorJsEngine
+import com.nexusdeck.app.core.engine.EngineDownloadKind
 import com.nexusdeck.app.core.engine.EngineDownloadProgress
 import com.nexusdeck.app.core.engine.EngineInfo
 import com.nexusdeck.app.core.engine.EngineManager
@@ -710,6 +711,9 @@ class NexusDeckComprehensiveStressTest {
         assertEquals(TargetEmulator.DuckStation, duckStation.targetEmulator)
         assertEquals("com.github.stenzek.duckstation", duckStation.primaryPackageName)
         assertTrue(duckStation.alternatePackageNames.contains("org.duckstation.android"))
+        // GitHub DuckStation tidak berisi APK Android (audit 2026-11-10) — jalur resmi via Play Store.
+        assertEquals(EngineDownloadKind.PLAY_STORE, duckStation.downloadKind)
+        assertEquals("https://play.google.com/store/apps/details?id=com.github.stenzek.duckstation", duckStation.downloadUrl)
 
         // PSP: PPSSPP
         val ppsspp = EngineManager.ppssppEngine
@@ -718,8 +722,9 @@ class NexusDeckComprehensiveStressTest {
         assertEquals(GamePlatform.PSP, ppsspp.platform)
         assertEquals(TargetEmulator.PPSSPP, ppsspp.targetEmulator)
         assertEquals("org.ppsspp.ppsspp", ppsspp.primaryPackageName)
-        assertEquals("https://github.com/hrydgard/ppsspp/releases/download/v1.20.4/ppsspp.apk", ppsspp.downloadUrl)
-        assertTrue(ppsspp.downloadUrl.endsWith(".apk"))
+        // GitHub v1.20.4 tidak berisi APK (audit 2026-11-10) — distribusi resmi via Play Store.
+        assertEquals(EngineDownloadKind.PLAY_STORE, ppsspp.downloadKind)
+        assertEquals("https://play.google.com/store/apps/details?id=org.ppsspp.ppsspp", ppsspp.downloadUrl)
 
         // PS2: NetherSX2 Classic
         val nether = EngineManager.netherSx2Engine
@@ -729,7 +734,7 @@ class NexusDeckComprehensiveStressTest {
         assertEquals(TargetEmulator.ARMSX2, nether.targetEmulator)
         assertEquals("xyz.aethersx2.android", nether.primaryPackageName)
         assertTrue("NetherSX2 must support alternate armsx2 package", nether.alternatePackageNames.contains("come.nanodata.armsx2"))
-        assertEquals("https://github.com/Trixarian/NetherSX2-classic/releases/download/v2.2n-3668/NetherSX2-v2.2n-3668.apk", nether.downloadUrl)
+        assertEquals("https://github.com/Trixarian/NetherSX2-classic/releases/download/2.2n/NetherSX2-v2.2n-3668.apk", nether.downloadUrl)
 
         // PC: GameNative / Winlator
         val gameNative = EngineManager.gameNativeEngine
@@ -737,25 +742,26 @@ class NexusDeckComprehensiveStressTest {
         assertEquals(GamePlatform.PC, gameNative.platform)
         assertEquals(TargetEmulator.GameNative, gameNative.targetEmulator)
         assertEquals("app.gamenative", gameNative.primaryPackageName)
-        assertEquals("https://github.com/utkarshdalal/GameNative/releases/latest/download/GameNative.apk", gameNative.downloadUrl)
+        assertEquals("https://github.com/utkarshdalal/GameNative/releases/download/v1.4.0/gamenative-v1.4.0.apk", gameNative.downloadUrl)
 
         // Nintendo DS: melonDS
         val melonDs = EngineManager.melonDsEngine
         assertEquals("melonds", melonDs.id)
         assertEquals("net.kuribo64.melonDS", melonDs.primaryPackageName)
-        assertEquals("https://github.com/rafaelvcaetano/melonDS-android/releases/download/1.9.3/melonDS-1.9.3.apk", melonDs.downloadUrl)
+        assertEquals("https://github.com/rafaelvcaetano/melonDS-android/releases/download/2.0.1/app-gitHub-prod-release.apk", melonDs.downloadUrl)
 
-        // Nintendo 3DS: Lime3DS
-        val lime3ds = EngineManager.lime3dsEngine
-        assertEquals("lime3ds", lime3ds.id)
-        assertEquals("io.github.lime3ds", lime3ds.primaryPackageName)
-        assertEquals("https://github.com/Lime3DS/Lime3DS/releases/latest/download/lime3ds-android.apk", lime3ds.downloadUrl)
+        // Nintendo 3DS: Lime3DS berganti nama menjadi Azahar (audit 2026-11-10)
+        val azahar = EngineManager.azaharEngine
+        assertEquals("azahar", azahar.id)
+        assertEquals("org.azahar_emu.azahar", azahar.primaryPackageName)
+        assertEquals("https://github.com/azahar-emu/azahar/releases/download/2126.2/azahar-android-vanilla-2126.2.apk", azahar.downloadUrl)
 
-        // Nintendo Switch: Sudachi
+        // Nintendo Switch: Sudachi — repo sudah tidak ada (audit 2026-11-10), ditandai UNAVAILABLE
         val sudachi = EngineManager.sudachiEngine
         assertEquals("sudachi", sudachi.id)
         assertEquals("org.sudachi.sudachi_emu", sudachi.primaryPackageName)
-        assertEquals("https://github.com/emuplace/sudachi.emuplace.app/releases/latest/download/sudachi.apk", sudachi.downloadUrl)
+        assertEquals(EngineDownloadKind.UNAVAILABLE, sudachi.downloadKind)
+        assertTrue(sudachi.unavailableReason?.isNotBlank() == true)
     }
 
     @Test
@@ -770,7 +776,7 @@ class NexusDeckComprehensiveStressTest {
         assertEquals("nethersx2", EngineManager.getEngineForEmulator(TargetEmulator.ARMSX2).id)
         assertEquals("gamenative", EngineManager.getEngineForEmulator(TargetEmulator.GameNative).id)
         assertEquals("melonds", EngineManager.getEngineForEmulator(TargetEmulator.MelonDS).id)
-        assertEquals("lime3ds", EngineManager.getEngineForEmulator(TargetEmulator.Lime3DS).id)
+        assertEquals("azahar", EngineManager.getEngineForEmulator(TargetEmulator.Lime3DS).id)
         assertEquals("sudachi", EngineManager.getEngineForEmulator(TargetEmulator.Sudachi).id)
         assertEquals("aps3e", EngineManager.getEngineForEmulator(TargetEmulator.ARMSX3).id)
         assertEquals("lemuroid", EngineManager.getEngineForEmulator(TargetEmulator.Lemuroid).id)
@@ -791,7 +797,7 @@ class NexusDeckComprehensiveStressTest {
         val enginePs2 = EngineManager.getEngineForGame(testPs2)
         assertEquals("nethersx2", enginePs2.id)
 
-        val testLime = GameItem(
+        val testAzahar = GameItem(
             id = "test_3ds",
             title = "Pokemon Sun",
             platform = GamePlatform.NINTENDO,
@@ -800,8 +806,8 @@ class NexusDeckComprehensiveStressTest {
             recommendedSocKeywords = listOf("snapdragon"),
             targetEmulator = TargetEmulator.Lime3DS
         )
-        val engineLime = EngineManager.getEngineForGame(testLime)
-        assertEquals("lime3ds", engineLime.id)
+        val engineAzahar = EngineManager.getEngineForGame(testAzahar)
+        assertEquals("azahar", engineAzahar.id)
     }
 
     @Test
@@ -1296,9 +1302,12 @@ class NexusDeckComprehensiveStressTest {
         assertEquals("aps3e", aps3e.id)
         assertEquals(GamePlatform.PS3, aps3e.platform)
         assertEquals(TargetEmulator.ARMSX3, aps3e.targetEmulator)
-        assertEquals("com.tinyproot.aps3e", aps3e.primaryPackageName)
-        assertEquals("~26 MB", aps3e.estimatedSizeLabel)
+        // Repo lama APS3e/APS3e 404; proyek kini aenu1/aps3e, distribusi via Play Store (audit 2026-11-10).
+        assertEquals("aenu.aps3e", aps3e.primaryPackageName)
+        assertEquals(EngineDownloadKind.PLAY_STORE, aps3e.downloadKind)
+        assertEquals("https://play.google.com/store/apps/details?id=aenu.aps3e", aps3e.downloadUrl)
         assertTrue(aps3e.allPackageNames.contains("com.armsx3.play"))
+        assertTrue(aps3e.allPackageNames.contains("com.tinyproot.aps3e"))
         assertTrue(aps3e.allPackageNames.contains("org.aps3e"))
 
         val resolved = EngineManager.getEngineForPlatform(GamePlatform.PS3)

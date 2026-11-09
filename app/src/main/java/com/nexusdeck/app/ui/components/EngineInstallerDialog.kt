@@ -31,6 +31,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.nexusdeck.app.core.engine.EngineDownloadKind
 import com.nexusdeck.app.core.engine.EngineDownloadProgress
 import com.nexusdeck.app.core.engine.EngineInfo
 import com.nexusdeck.app.core.engine.EngineManager
@@ -49,6 +50,10 @@ fun formatFriendlyErrorMessage(rawError: String?): String {
     return when {
         rawError.contains("404") ->
             "File APK rilis belum tersedia di server (HTTP 404). Silakan unduh manual langsung dari browser."
+        rawError.contains("Play Store") ->
+            rawError
+        rawError.startsWith("Tautan") || rawError.startsWith("File") || rawError.startsWith("Server") ->
+            rawError
         rawError.contains("timeout", ignoreCase = true) ||
                 rawError.contains("timed out", ignoreCase = true) ||
                 rawError.contains("koneksi", ignoreCase = true) ||
@@ -61,8 +66,19 @@ fun formatFriendlyErrorMessage(rawError: String?): String {
 
 /**
  * Dialog Instalasi Engine Cerdas (Smart In-App Engine Installer Dialog)
- * Muncul saat engine emulator belum terpasang di HP. Menyediakan unduhan APK
- * latar belakang dari GitHub Releases dan pemicu instalasi 1-tap via FileProvider.
+ * Muncul saat engine emulator belum terpasang di HP.
+ *
+ * v1.2.0 — tiga jalur pemasangan sesuai jenis engine (bukan lagi "selalu unduh
+ * APK dari GitHub"):
+ * - GITHUB_APK: unduh APK langsung dengan pre-flight LinkVerifier. Selama
+ *   resolusi URL + pemeriksaan berlangsung, dialog menampilkan status
+ *   "Memeriksa…" dengan progres tak tentu — bukan lagi 0% dan 0,0 MB yang
+ *   diam seperti di video laporan user.
+ * - PLAY_STORE: tombol "Pasang via Play Store" membuka aplikasi Play Store
+ *   (fallback halaman web). Tombol browser membuka halaman Play Store yang
+ *   sudah terverifikasi — bukan lagi URL GitHub 404.
+ * - UNAVAILABLE: tidak ada tombol pemasangan sama sekali; dialog menjelaskan
+ *   dengan jujur kenapa engine belum bisa dipasang.
  */
 @Composable
 fun EngineInstallerDialog(
@@ -74,6 +90,7 @@ fun EngineInstallerDialog(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
+    var isResolving by remember { mutableStateOf(false) }
     var isDownloading by remember { mutableStateOf(false) }
     var downloadProgress by remember { mutableFloatStateOf(0f) }
     var downloadedBytes by remember { mutableLongStateOf(0L) }
@@ -86,7 +103,13 @@ fun EngineInstallerDialog(
         mutableStateOf(EngineManager.isEngineInstalled(context, engineInfo))
     }
 
+    val isUnavailable = engineInfo.downloadKind == EngineDownloadKind.UNAVAILABLE
+    val isPlayStore = engineInfo.downloadKind == EngineDownloadKind.PLAY_STORE
+    val isBusy = isResolving || isDownloading
+
     Dialog(onDismissRequest = {
+        // Boleh ditutup selama pemeriksaan (coroutine ikut dibatalkan);
+        // jangan tutup saat byte sedang mengalir.
         if (!isDownloading) onDismiss()
     }) {
         Surface(
@@ -119,7 +142,7 @@ fun EngineInstallerDialog(
                     Icon(
                         imageVector = when {
                             isActuallyInstalled -> Icons.Default.CheckCircle
-                            isDownloading -> Icons.Default.Download
+                            isBusy -> Icons.Default.Download
                             errorMessage != null -> Icons.Default.ErrorOutline
                             else -> Icons.Default.SportsEsports
                         },
@@ -135,8 +158,10 @@ fun EngineInstallerDialog(
                 Text(
                     text = when {
                         isActuallyInstalled -> "Engine Siap Dimainkan!"
+                        isResolving -> "Memeriksa ${engineInfo.name}..."
                         isDownloading -> "Mengunduh ${engineInfo.name}..."
                         downloadedApkFile != null -> "Menunggu Instalasi"
+                        isUnavailable -> "Engine ${engineInfo.name} Belum Tersedia"
                         else -> "Engine ${engineInfo.name} Diperlukan"
                     },
                     style = MaterialTheme.typography.titleLarge.copy(
@@ -154,12 +179,19 @@ fun EngineInstallerDialog(
                     text = when {
                         isActuallyInstalled ->
                             "Engine ${engineInfo.name} telah aktif terpasang di HP Anda. Siap meluncurkan $gameTitle secara langsung!"
+                        isResolving ->
+                            "Memeriksa ketersediaan engine di server. Sebentar..."
                         isDownloading ->
                             "Mengunduh file APK resmi dari GitHub Releases. Mohon tunggu sejenak..."
                         downloadedApkFile != null ->
                             "Paket APK ${engineInfo.name} berhasil diunduh. Silakan konfirmasi pemasangan pada layar pop-up Android Anda."
                         errorMessage != null ->
                             formatFriendlyErrorMessage(errorMessage)
+                        isUnavailable ->
+                            engineInfo.unavailableReason
+                                ?: "Engine ${engineInfo.name} belum tersedia untuk diunduh saat ini."
+                        isPlayStore ->
+                            "Engine ${engineInfo.name} tersedia di Google Play Store. Pasang dari sana — tanpa unduh file APK manual."
                         else ->
                             "Engine ${engineInfo.name} diperlukan untuk memutar game \"$gameTitle\" (Ukuran: ${engineInfo.estimatedSizeLabel}). Unduh dan pasang sekarang?"
                     },
@@ -220,11 +252,19 @@ fun EngineInstallerDialog(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
-                                text = "Estimasi Ukuran",
+                                text = when {
+                                    isUnavailable -> "Status"
+                                    isPlayStore -> "Sumber"
+                                    else -> "Estimasi Ukuran"
+                                },
                                 style = MaterialTheme.typography.labelSmall.copy(color = NexusPalette.TextMuted)
                             )
                             Text(
-                                text = engineInfo.estimatedSizeLabel,
+                                text = when {
+                                    isUnavailable -> "Tidak tersedia"
+                                    isPlayStore -> "Google Play Store"
+                                    else -> engineInfo.estimatedSizeLabel
+                                },
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontWeight = FontWeight.Bold,
                                     color = NexusPalette.AccentVioletLight
@@ -234,9 +274,9 @@ fun EngineInstallerDialog(
                     }
                 }
 
-                // Progress Bar saat mengunduh
+                // Progress Bar saat memeriksa / mengunduh
                 AnimatedVisibility(
-                    visible = isDownloading,
+                    visible = isBusy,
                     enter = fadeIn(),
                     exit = fadeOut()
                 ) {
@@ -246,33 +286,49 @@ fun EngineInstallerDialog(
                             .padding(top = 16.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        LinearProgressIndicator(
-                            progress = { downloadProgress },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(6.dp)
-                                .clip(RoundedCornerShape(3.dp)),
-                            color = NexusPalette.PrimaryViolet,
-                            trackColor = NexusPalette.BorderCard
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = "${(downloadProgress * 100).toInt()}%",
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    color = NexusPalette.NeonCyan
-                                )
+                        if (isResolving) {
+                            LinearProgressIndicator(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(6.dp)
+                                    .clip(RoundedCornerShape(3.dp)),
+                                color = NexusPalette.PrimaryViolet,
+                                trackColor = NexusPalette.BorderCard
                             )
-                            val downloadedMb = downloadedBytes.toDouble() / (1024.0 * 1024.0)
-                            val totalMb = totalBytes.toDouble() / (1024.0 * 1024.0)
+                            Spacer(modifier = Modifier.height(6.dp))
                             Text(
-                                text = String.format(Locale.US, "%.1f MB / %.1f MB", downloadedMb, totalMb),
+                                text = "Memeriksa ketersediaan engine...",
                                 style = MaterialTheme.typography.labelSmall.copy(color = NexusPalette.TextMuted)
                             )
+                        } else {
+                            LinearProgressIndicator(
+                                progress = { downloadProgress },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(6.dp)
+                                    .clip(RoundedCornerShape(3.dp)),
+                                color = NexusPalette.PrimaryViolet,
+                                trackColor = NexusPalette.BorderCard
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = "${(downloadProgress * 100).toInt()}%",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        color = NexusPalette.NeonCyan
+                                    )
+                                )
+                                val downloadedMb = downloadedBytes.toDouble() / (1024.0 * 1024.0)
+                                val totalMb = totalBytes.toDouble() / (1024.0 * 1024.0)
+                                Text(
+                                    text = String.format(Locale.US, "%.1f MB / %.1f MB", downloadedMb, totalMb),
+                                    style = MaterialTheme.typography.labelSmall.copy(color = NexusPalette.TextMuted)
+                                )
+                            }
                         }
                     }
                 }
@@ -343,7 +399,84 @@ fun EngineInstallerDialog(
                             Text("Tutup")
                         }
                     }
-                } else if (!isDownloading) {
+                } else if (isUnavailable) {
+                    // Tidak ada jalur pemasangan — jangan tawarkan tombol unduhan palsu.
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, NexusPalette.BorderCard),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = NexusPalette.TextSecondary)
+                    ) {
+                        Text("Tutup")
+                    }
+                } else if (isPlayStore) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(
+                            onClick = {
+                                val opened = EngineManager.openPlayStore(context, engineInfo)
+                                if (!opened) {
+                                    Toast.makeText(
+                                        context,
+                                        "Tidak dapat membuka Play Store. Coba lewat browser.",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = NexusPalette.PrimaryViolet,
+                                contentColor = Color.White
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(Icons.Default.OpenInBrowser, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Pasang via Play Store", fontWeight = FontWeight.Bold)
+                        }
+
+                        OutlinedButton(
+                            onClick = onDismiss,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, NexusPalette.BorderCard),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = NexusPalette.TextSecondary)
+                        ) {
+                            Text("Batal")
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Buka halaman Play Store di browser eksternal sebagai fallback
+                    TextButton(
+                        onClick = {
+                            try {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(engineInfo.downloadUrl)).apply {
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                                context.startActivity(intent)
+                            } catch (_: Exception) {
+                                Toast.makeText(context, "Tidak dapat membuka browser.", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    ) {
+                        Icon(
+                            Icons.Default.OpenInBrowser,
+                            contentDescription = null,
+                            tint = NexusPalette.NeonCyan,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Buka di Google Play (Browser)",
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                color = NexusPalette.NeonCyan,
+                                fontWeight = FontWeight.Bold
+                            )
+                        )
+                    }
+                } else if (!isBusy) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -360,18 +493,29 @@ fun EngineInstallerDialog(
 
                         Button(
                             onClick = {
-                                isDownloading = true
+                                isResolving = true
+                                isDownloading = false
+                                downloadProgress = 0f
+                                downloadedBytes = 0L
+                                totalBytes = 0L
                                 errorMessage = null
                                 coroutineScope.launch {
                                     EngineManager.downloadEngineApk(context, engineInfo)
                                         .collectLatest { progress ->
                                             when (progress) {
+                                                is EngineDownloadProgress.Resolving -> {
+                                                    isResolving = true
+                                                    isDownloading = false
+                                                }
                                                 is EngineDownloadProgress.Downloading -> {
+                                                    isResolving = false
+                                                    isDownloading = true
                                                     downloadProgress = progress.progress
                                                     downloadedBytes = progress.downloadedBytes
                                                     totalBytes = progress.totalBytes
                                                 }
                                                 is EngineDownloadProgress.Completed -> {
+                                                    isResolving = false
                                                     isDownloading = false
                                                     downloadedApkFile = progress.apkFile
                                                     // Otomatis buka prompt instalasi Android via FileProvider
@@ -387,6 +531,7 @@ fun EngineInstallerDialog(
                                                     }
                                                 }
                                                 is EngineDownloadProgress.Failed -> {
+                                                    isResolving = false
                                                     isDownloading = false
                                                     errorMessage = progress.error
                                                 }
@@ -407,7 +552,8 @@ fun EngineInstallerDialog(
 
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    // Unduh via browser eksternal sebagai fallback
+                    // Unduh via browser eksternal sebagai fallback — URL ini sudah
+                    // terverifikasi hidup (v1.2.0), bukan lagi URL GitHub 404.
                     TextButton(
                         onClick = {
                             try {
