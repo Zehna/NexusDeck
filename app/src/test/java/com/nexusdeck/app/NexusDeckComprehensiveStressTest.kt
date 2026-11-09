@@ -282,7 +282,7 @@ class NexusDeckComprehensiveStressTest {
     }
 
     @Test
-    fun test13_catalogSearch_allSourcesFail_emitsSyntheticFallback() = runBlocking {
+    fun test13_catalogSearch_allSourcesFail_emitsEmptyList() = runBlocking {
         val completelyBrokenSource = object : GameRepositorySource {
             override val sourceName: String = "Broken Source"
             override val priority: Int = 1
@@ -299,8 +299,12 @@ class NexusDeckComprehensiveStressTest {
         // Page > 1 skips local MockGames so all remote sources fail
         val results = service.searchOnlineGames(query = "God of War", platform = GamePlatform.PS2, page = 2).first()
 
-        assertTrue("Synthetic fallback must provide games when all mirrors are offline", results.isNotEmpty())
-        assertTrue(results.first().title.contains("God of War"))
+        // v1.1.9 — tidak ada lagi fallback sintetis ("Failover Web Mirror"):
+        // bila semua mirror offline, pencarian mengembalikan daftar kosong,
+        // bukan game bohongan dengan URL archive.org yang ditebak-nebak.
+        // UI menampilkan empty state; katalog tidak boleh membuat game yang
+        // tidak ada menjadi ada.
+        assertTrue("No invented games: empty results when all mirrors are offline", results.isEmpty())
     }
 
     // =========================================================================
