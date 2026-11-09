@@ -187,8 +187,6 @@ class RealGameDownloader(private val context: Context) {
                 "Tautan mengarah ke terlalu banyak redirect."
             DownloadManager.ERROR_UNHANDLED_HTTP_CODE ->
                 "Server mengembalikan kode HTTP yang tidak ditangani DownloadManager."
-            DownloadManager.ERROR_BLOCKED ->
-                "Unduhan diblokir oleh sistem (cek koneksi / pengaturan unduhan)."
             DownloadManager.ERROR_DEVICE_NOT_FOUND ->
                 "Penyimpanan eksternal tidak ditemukan."
             else -> "Unduhan gagal (DownloadManager)."

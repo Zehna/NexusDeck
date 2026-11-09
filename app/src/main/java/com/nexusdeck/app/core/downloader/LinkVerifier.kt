@@ -77,7 +77,7 @@ object LinkVerifier {
      * diuji unit. Aturan:
      * - URL kosong atau menunjuk ke direktori (berakhiran "/") → tolak.
      * - Status bukan 200/206 → tolak dengan kode HTTP-nya.
-     * - Content-Type text/* (termasuk text/html) → tolak: itu halaman web.
+     * - Content-Type bertipe text (mis. text/html) → tolak: itu halaman web.
      * - Content-Length diketahui dan di bawah batas minimum → tolak.
      * - Content-Type biner yang dikenal, atau tidak dinyatakan server tapi
      * ukuran mencukupi → terima.
