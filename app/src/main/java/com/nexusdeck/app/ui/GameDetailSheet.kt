@@ -830,6 +830,11 @@ private fun GameActionSection(
                     style = MaterialTheme.typography.labelSmall,
                     color = NexusPalette.TextSecondary
                 )
+                Text(
+                    text = "Bawa ROM sendiri: letakkan file ${game.id}.${game.platform.defaultExtension} di $platformFolder lalu tap Coba Unduh Lagi — file lokal yang valid langsung dipakai tanpa mengunduh.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = NexusPalette.TextSecondary
+                )
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()

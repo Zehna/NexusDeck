@@ -16,6 +16,18 @@ object MockGames {
      * user-owned / homebrew ROMs; RealGameDownloader rejects anything that
      * fails binary/size validation.
      *
+     * v1.1.6 — automatic verification (LinkVerifier): every URL below is
+     * now checked BEFORE DownloadManager is enqueued (HTTP status,
+     * Content-Type, Content-Length, plus a 512-byte probe for HTML). A dead
+     * link fails in seconds with its real reason instead of the vague
+     * "tidak ada progres" after waiting on a file that will never arrive.
+     * Directory URLs (ending in "/") can never pass verification — a direct
+     * download link must point at ONE binary file. No new commercial ROM
+     * links were added here: a link that fails verification stays failed,
+     * and the supported path for these titles is importing a ROM the user
+     * already owns (GameInstallManager picks up a validated local file
+     * without downloading — see RealGameDownloader.getVerifiedLocalGameFile).
+     *
      * Featured Catalog (16 Game Populer Lintas Platform: PS1, PSP, PS2, PC, PS3, Nintendo)
      * Menggunakan URL Box Art Resmi Wikipedia & Steam CDN (Zero Unsplash Stock Photos).
      */

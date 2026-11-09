@@ -20,6 +20,17 @@ class MyrientMirrorSource : GameRepositorySource {
         )
     }
 
+    /**
+     * Curated Myrient index. WARNING: these URLs are unverified placeholders
+     * (v1.1.6) — the short No-Intro/Redump file names below were never
+     * confirmed to exist on the mirror, and the Mario entry already failed
+     * in the field with an HTML page instead of a file. Do NOT "fix" them
+     * to other commercial ROM links. Every URL is now verified at runtime
+     * by LinkVerifier before any download starts, and ZIP downloads are
+     * extracted by RealGameDownloader (a .zip is never saved as a .gba).
+     * A URL that fails verification stays failed; the supported path is
+     * importing a user-owned ROM file locally.
+     */
     private val curatedMyrientIndex: List<GameItem> = listOf(
         // Nintendo classics
         GameItem(
