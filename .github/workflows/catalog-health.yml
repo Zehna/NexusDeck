@@ -1,0 +1,37 @@
+name: Catalog Health Check
+
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'app/src/main/java/com/nexusdeck/app/data/MockGames.kt'
+      - 'app/src/main/java/com/nexusdeck/app/core/repository/sources/**'
+      - 'tools/check-catalog.py'
+
+permissions:
+  contents: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Check catalog links
+        run: python3 tools/check-catalog.py
+
+      - name: Commit updated snapshot
+        if: github.event_name != 'pull_request'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/assets/catalog-health.json
+          git diff --cached --quiet || git commit -m "chore(catalog): update catalog-health snapshot [skip ci]" && git push
