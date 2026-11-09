@@ -845,8 +845,26 @@ class NexusDeckComprehensiveStressTest {
     @Test
     fun test34_engineManager_downloadUrlsAllHttpsAndApk() {
         for (engine in EngineManager.registeredEngines) {
-            assertTrue("URL must be HTTPS: ${engine.downloadUrl}", engine.downloadUrl.startsWith("https://"))
-            assertTrue("URL must end with .apk: ${engine.downloadUrl}", engine.downloadUrl.endsWith(".apk"))
+            when (engine.downloadKind) {
+                EngineDownloadKind.GITHUB_APK -> {
+                    assertTrue("URL APK harus HTTPS: ${engine.downloadUrl}", engine.downloadUrl.startsWith("https://"))
+                    assertTrue("URL APK harus berakhiran .apk: ${engine.downloadUrl}", engine.downloadUrl.endsWith(".apk"))
+                }
+                EngineDownloadKind.PLAY_STORE -> {
+                    // Engine Play Store: URL adalah halaman Play Store resmi, bukan file APK
+                    // (DuckStation & PPSSPP tidak lagi menerbitkan APK di GitHub — audit 2026-11-10).
+                    assertTrue("URL Play Store harus HTTPS: ${engine.downloadUrl}", engine.downloadUrl.startsWith("https://"))
+                    assertEquals(
+                        "https://play.google.com/store/apps/details?id=${engine.primaryPackageName}",
+                        engine.downloadUrl
+                    )
+                }
+                EngineDownloadKind.UNAVAILABLE -> {
+                    // Engine tanpa sumber unduhan: tidak ada URL, tapi wajib ada alasan jujur.
+                    assertTrue("Engine tidak tersedia harus tanpa URL: ${engine.id}", engine.downloadUrl.isBlank())
+                    assertTrue("Engine tidak tersedia wajib punya alasan: ${engine.id}", engine.unavailableReason?.isNotBlank() == true)
+                }
+            }
             assertTrue("Estimated size must not be blank: ${engine.name}", engine.estimatedSizeLabel.isNotBlank())
             assertTrue("Description must not be blank: ${engine.name}", engine.description.isNotBlank())
             assertNotNull("Engine ID must be lookup-able: ${engine.id}", EngineManager.getEngineById(engine.id))
@@ -1351,8 +1369,11 @@ class NexusDeckComprehensiveStressTest {
         // 4. PS3 (APS3e)
         val ps3Engine = EngineManager.getEngineForPlatform(GamePlatform.PS3)
         assertEquals("aps3e", ps3Engine.id)
-        assertEquals("com.tinyproot.aps3e", ps3Engine.primaryPackageName)
+        // Repo lama APS3e/APS3e 404; paket Play Store kini aenu.aps3e (audit 2026-11-10).
+        assertEquals("aenu.aps3e", ps3Engine.primaryPackageName)
+        assertEquals(EngineDownloadKind.PLAY_STORE, ps3Engine.downloadKind)
         assertTrue(ps3Engine.alternatePackageNames.contains("com.armsx3.play"))
+        assertTrue(ps3Engine.alternatePackageNames.contains("com.tinyproot.aps3e"))
 
         // 5. PC (GameNative)
         val pcEngine = EngineManager.getEngineForPlatform(GamePlatform.PC)
