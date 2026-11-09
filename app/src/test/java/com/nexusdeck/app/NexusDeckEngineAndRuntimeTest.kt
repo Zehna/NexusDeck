@@ -247,17 +247,30 @@ class NexusDeckEngineAndRuntimeTest {
             htmlContent.contains("cdn.emulatorjs.org")
         )
 
-        // 2. Verifikasi memuat file runtime lokal dari assets
+        // 2. Verifikasi memuat file runtime lokal dari assets (IodineGBA)
         assertTrue(
-            "HTML runtime harus memuat file:///android_asset/retro/retro_engine.js",
-            htmlContent.contains("file:///android_asset/retro/retro_engine.js")
+            "HTML runtime harus memuat file:///android_asset/retro/iodine/nexus_iodine_glue.js",
+            htmlContent.contains("file:///android_asset/retro/iodine/nexus_iodine_glue.js")
+        )
+        assertTrue(
+            "HTML runtime harus memuat core IodineGBA dari assets",
+            htmlContent.contains("file:///android_asset/retro/iodine/IodineGBA/core/Emulator.js")
+        )
+        assertFalse(
+            "HTML runtime tidak boleh lagi memuat retro_engine.js (fake canvas engine, dihapus di v1.1.5)",
+            htmlContent.contains("retro_engine.js")
+        )
+        assertFalse(
+            "HTML runtime tidak boleh lagi memanggil nexusLoadRom (fake loader, dihapus di v1.1.5)",
+            htmlContent.contains("nexusLoadRom")
         )
         assertEquals("file:///android_asset/retro/", EmulatorJsEngine.OFFLINE_ASSET_BASE_URL)
 
-        // 3. Verifikasi core Nintendo terselesaikan dengan benar
+        // 3. Verifikasi core Nintendo terselesaikan dengan benar:
+        // hanya .gba yang in-app (mgba/IodineGBA); yang lain engine eksternal.
         assertEquals("mgba", EmulatorJsEngine.resolveCore(GamePlatform.NINTENDO, "zelda.gba"))
-        assertEquals("snes", EmulatorJsEngine.resolveCore(GamePlatform.NINTENDO, "mario_world.smc"))
-        assertEquals("nes", EmulatorJsEngine.resolveCore(GamePlatform.NINTENDO, "contra.nes"))
+        assertEquals("snes9x", EmulatorJsEngine.resolveCore(GamePlatform.NINTENDO, "mario_world.smc"))
+        assertEquals("fceumm", EmulatorJsEngine.resolveCore(GamePlatform.NINTENDO, "contra.nes"))
     }
 
     // =========================================================================

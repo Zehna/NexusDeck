@@ -1157,13 +1157,15 @@ class NexusDeckComprehensiveStressTest {
 
     @Test
     fun test49_emulatorJsEngine_coreResolutionAndHtmlGeneration() {
+        // Hanya .gba yang in-app (mgba/IodineGBA); platform lain adalah
+        // engine eksternal — v1.1.5 tidak lagi mengklaim core in-app palsu.
         assertEquals("mgba", EmulatorJsEngine.resolveCore(GamePlatform.NINTENDO, "zelda_minish_cap.gba"))
-        assertEquals("snes", EmulatorJsEngine.resolveCore(GamePlatform.NINTENDO, "chrono_trigger.snes"))
-        assertEquals("nes", EmulatorJsEngine.resolveCore(GamePlatform.NINTENDO, "super_mario.nes"))
-        assertEquals("gb", EmulatorJsEngine.resolveCore(GamePlatform.NINTENDO, "pokemon_crystal.gbc"))
-        assertEquals("nds", EmulatorJsEngine.resolveCore(GamePlatform.NINTENDO, "pokemon_black.nds"))
-        assertEquals("n64", EmulatorJsEngine.resolveCore(GamePlatform.NINTENDO, "zelda_oot.n64"))
-        assertEquals("psp", EmulatorJsEngine.resolveCore(GamePlatform.PSP, "crisis_core.iso"))
+        assertEquals("snes9x", EmulatorJsEngine.resolveCore(GamePlatform.NINTENDO, "chrono_trigger.snes"))
+        assertEquals("fceumm", EmulatorJsEngine.resolveCore(GamePlatform.NINTENDO, "super_mario.nes"))
+        assertEquals("gambatte", EmulatorJsEngine.resolveCore(GamePlatform.NINTENDO, "pokemon_crystal.gbc"))
+        assertEquals("melonds", EmulatorJsEngine.resolveCore(GamePlatform.NINTENDO, "pokemon_black.nds"))
+        assertEquals("mupen64plus", EmulatorJsEngine.resolveCore(GamePlatform.NINTENDO, "zelda_oot.n64"))
+        assertEquals("ppsspp", EmulatorJsEngine.resolveCore(GamePlatform.PSP, "crisis_core.iso"))
 
         val zelda = GameItem(
             id = "gba_zelda",
@@ -1178,7 +1180,10 @@ class NexusDeckComprehensiveStressTest {
         val html = EmulatorJsEngine.generateHtml(zelda, "/games/nintendo/zelda.gba")
         assertTrue("HTML must contain screen canvas", html.contains("id=\"nexus-screen\""))
         assertTrue("HTML must specify mgba core for GBA", html.contains("'mgba'"))
-        assertTrue("HTML must include retro engine script", html.contains("retro_engine.js"))
+        assertTrue("HTML must include the IodineGBA glue script", html.contains("nexus_iodine_glue.js"))
+        assertTrue("HTML must load the IodineGBA core from assets", html.contains("IodineGBA/core/Emulator.js"))
+        assertFalse("HTML must not include the deleted fake retro_engine.js", html.contains("retro_engine.js"))
+        assertFalse("HTML must not embed a ROM (injected separately in chunks)", html.contains("nexusLoadRom"))
     }
 
     @Test

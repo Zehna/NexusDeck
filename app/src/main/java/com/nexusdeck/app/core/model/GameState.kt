@@ -5,4 +5,5 @@ sealed class GameState {
     data class Downloading(val progress: Float) : GameState()
     data object Extracting : GameState()
     data class Installed(val romPath: String) : GameState()
+    data class Failed(val message: String) : GameState()
 }

@@ -3,7 +3,60 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <title>NexusDeck Retro Offline Runtime</title>
+    <title>NexusDeck Retro Player — IodineGBA</title>
+    <!--
+      Real IodineGBA core (MIT, Grant Galitz 2010-2017), vendored locally.
+      Load order mirrors upstream index.html, on-thread only: no Worker
+      shims (WebView file:// has no SharedArrayBuffer) and no XAudioJS
+      (empty submodule upstream) — v1.1.5 runs silent, saves in-memory.
+    -->
+    <script src="file:///android_asset/retro/iodine/IodineGBA/includes/TypedArrayShim.js"></script>
+    <script src="file:///android_asset/retro/iodine/IodineGBA/core/Cartridge.js"></script>
+    <script src="file:///android_asset/retro/iodine/IodineGBA/core/DMA.js"></script>
+    <script src="file:///android_asset/retro/iodine/IodineGBA/core/Emulator.js"></script>
+    <script src="file:///android_asset/retro/iodine/IodineGBA/core/Graphics.js"></script>
+    <script src="file:///android_asset/retro/iodine/IodineGBA/core/RunLoop.js"></script>
+    <script src="file:///android_asset/retro/iodine/IodineGBA/core/Memory.js"></script>
+    <script src="file:///android_asset/retro/iodine/IodineGBA/core/IRQ.js"></script>
+    <script src="file:///android_asset/retro/iodine/IodineGBA/core/JoyPad.js"></script>
+    <script src="file:///android_asset/retro/iodine/IodineGBA/core/Serial.js"></script>
+    <script src="file:///android_asset/retro/iodine/IodineGBA/core/Sound.js"></script>
+    <script src="file:///android_asset/retro/iodine/IodineGBA/core/Timer.js"></script>
+    <script src="file:///android_asset/retro/iodine/IodineGBA/core/Wait.js"></script>
+    <script src="file:///android_asset/retro/iodine/IodineGBA/core/CPU.js"></script>
+    <script src="file:///android_asset/retro/iodine/IodineGBA/core/Saves.js"></script>
+    <script src="file:///android_asset/retro/iodine/IodineGBA/core/sound/FIFO.js"></script>
+    <script src="file:///android_asset/retro/iodine/IodineGBA/core/sound/Channel1.js"></script>
+    <script src="file:///android_asset/retro/iodine/IodineGBA/core/sound/Channel2.js"></script>
+    <script src="file:///android_asset/retro/iodine/IodineGBA/core/sound/Channel3.js"></script>
+    <script src="file:///android_asset/retro/iodine/IodineGBA/core/sound/Channel4.js"></script>
+    <script src="file:///android_asset/retro/iodine/IodineGBA/core/CPU/ARM.js"></script>
+    <script src="file:///android_asset/retro/iodine/IodineGBA/core/CPU/THUMB.js"></script>
+    <script src="file:///android_asset/retro/iodine/IodineGBA/core/CPU/CPSR.js"></script>
+    <script src="file:///android_asset/retro/iodine/IodineGBA/core/graphics/Renderer.js"></script>
+    <script src="file:///android_asset/retro/iodine/IodineGBA/core/graphics/RendererShim.js"></script>
+    <script src="file:///android_asset/retro/iodine/IodineGBA/core/graphics/RendererProxy.js"></script>
+    <script src="file:///android_asset/retro/iodine/IodineGBA/core/graphics/BGTEXT.js"></script>
+    <script src="file:///android_asset/retro/iodine/IodineGBA/core/graphics/BG2FrameBuffer.js"></script>
+    <script src="file:///android_asset/retro/iodine/IodineGBA/core/graphics/BGMatrix.js"></script>
+    <script src="file:///android_asset/retro/iodine/IodineGBA/core/graphics/AffineBG.js"></script>
+    <script src="file:///android_asset/retro/iodine/IodineGBA/core/graphics/ColorEffects.js"></script>
+    <script src="file:///android_asset/retro/iodine/IodineGBA/core/graphics/Mosaic.js"></script>
+    <script src="file:///android_asset/retro/iodine/IodineGBA/core/graphics/OBJ.js"></script>
+    <script src="file:///android_asset/retro/iodine/IodineGBA/core/graphics/OBJWindow.js"></script>
+    <script src="file:///android_asset/retro/iodine/IodineGBA/core/graphics/Window.js"></script>
+    <script src="file:///android_asset/retro/iodine/IodineGBA/core/graphics/Compositor.js"></script>
+    <script src="file:///android_asset/retro/iodine/IodineGBA/core/memory/DMA0.js"></script>
+    <script src="file:///android_asset/retro/iodine/IodineGBA/core/memory/DMA1.js"></script>
+    <script src="file:///android_asset/retro/iodine/IodineGBA/core/memory/DMA2.js"></script>
+    <script src="file:///android_asset/retro/iodine/IodineGBA/core/memory/DMA3.js"></script>
+    <script src="file:///android_asset/retro/iodine/IodineGBA/core/cartridge/SaveDeterminer.js"></script>
+    <script src="file:///android_asset/retro/iodine/IodineGBA/core/cartridge/SRAM.js"></script>
+    <script src="file:///android_asset/retro/iodine/IodineGBA/core/cartridge/FLASH.js"></script>
+    <script src="file:///android_asset/retro/iodine/IodineGBA/core/cartridge/EEPROM.js"></script>
+    <script src="file:///android_asset/retro/iodine/IodineGBA/core/cartridge/GPIO.js"></script>
+    <script src="file:///android_asset/retro/iodine/user_scripts/GfxGlueCode.js"></script>
+    <script src="file:///android_asset/retro/iodine/nexus_iodine_glue.js"></script>
     <style>
         * {
             box-sizing: border-box;
@@ -59,6 +112,23 @@
             font-size: 10px;
             font-weight: 600;
         }
+        #nexus-status {
+            color: #94A3B8;
+            max-width: 34%;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        /* Full status / error banner (BIOS notice, load errors) */
+        #nexus-note {
+            padding: 6px 16px;
+            font-size: 11px;
+            line-height: 1.4;
+            color: #FACC15;
+            background: rgba(15, 23, 42, 0.9);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            text-align: center;
+        }
         /* Main Screen Container */
         #nexus-screen-container {
             flex: 1;
@@ -72,6 +142,8 @@
             image-rendering: pixelated;
             box-shadow: 0 0 30px rgba(6, 182, 212, 0.2);
             border-radius: 6px;
+            width: min(100%, 720px);
+            aspect-ratio: 3 / 2;
         }
         /* Virtual Controls Layer */
         #controls-layer {
@@ -182,48 +254,80 @@
         <!-- Top HUD -->
         <div id="top-bar">
             <span id="nexus-game-title">NexusDeck Retro Player</span>
-            <span id="nexus-core-name" class="hud-badge">MGBA OFFLINE</span>
-            <span id="nexus-status" style="color: #94A3B8;">Direct Core</span>
-            <span id="nexus-fps" class="hud-badge" style="color: #10B981; border-color: rgba(16, 185, 129, 0.3);">60 FPS</span>
+            <span id="nexus-core-name" class="hud-badge">IODINEGBA</span>
+            <span id="nexus-status">Loading core...</span>
+            <span id="nexus-fps" class="hud-badge" style="color: #10B981; border-color: rgba(16, 185, 129, 0.3);">-- FPS</span>
         </div>
+        <div id="nexus-note">IodineGBA &bull; Audio off di v1.1.5 &bull; Saves hanya di memori sesi ini</div>
 
-        <!-- Canvas -->
+        <!-- Canvas: the real IodineGBA framebuffer target (240x160 native) -->
         <div id="nexus-screen-container">
-            <canvas id="nexus-screen"></canvas>
+            <canvas id="nexus-screen" width="240" height="160"></canvas>
         </div>
 
         <!-- Shoulder Controls -->
         <div class="shoulder-container">
-            <button class="nexus-btn btn-shoulder" data-key="L" data-freq="350">L</button>
-            <button class="nexus-btn btn-shoulder" data-key="R" data-freq="370">R</button>
+            <button class="nexus-btn btn-shoulder" data-gba-index="9">L</button>
+            <button class="nexus-btn btn-shoulder" data-gba-index="8">R</button>
         </div>
 
         <!-- Virtual Controls -->
         <div id="controls-layer">
             <!-- D-Pad -->
             <div class="control-group dpad-container">
-                <button class="nexus-btn dpad-up" data-key="UP" data-freq="440">▲</button>
-                <button class="nexus-btn dpad-down" data-key="DOWN" data-freq="392">▼</button>
-                <button class="nexus-btn dpad-left" data-key="LEFT" data-freq="330">◀</button>
-                <button class="nexus-btn dpad-right" data-key="RIGHT" data-freq="494">▶</button>
+                <button class="nexus-btn dpad-up" data-gba-index="6">&#9650;</button>
+                <button class="nexus-btn dpad-down" data-gba-index="7">&#9660;</button>
+                <button class="nexus-btn dpad-left" data-gba-index="5">&#9664;</button>
+                <button class="nexus-btn dpad-right" data-gba-index="4">&#9654;</button>
                 <div class="dpad-center"></div>
             </div>
 
             <!-- Start / Select -->
             <div class="system-buttons">
-                <button class="nexus-btn btn-pill" data-key="SELECT" data-freq="261">SELECT</button>
-                <button class="nexus-btn btn-pill" data-key="START" data-freq="523">START</button>
+                <button class="nexus-btn btn-pill" data-gba-index="2">SELECT</button>
+                <button class="nexus-btn btn-pill" data-gba-index="3">START</button>
             </div>
 
             <!-- Action Buttons -->
             <div class="control-group action-container">
-                <button class="nexus-btn btn-round btn-b" data-key="B" data-freq="440">B</button>
-                <button class="nexus-btn btn-round btn-a" data-key="A" data-freq="587">A</button>
+                <button class="nexus-btn btn-round btn-b" data-gba-index="1">B</button>
+                <button class="nexus-btn btn-round btn-a" data-gba-index="0">A</button>
             </div>
         </div>
     </div>
 
-    <!-- 100% Offline Local Engine -->
-    <script src="file:///android_asset/retro/retro_engine.js"></script>
+    <script>
+        // GBA key indices (IodineGBA JoyPad): 0=A, 1=B, 2=Select, 3=Start,
+        // 4=Right, 5=Left, 6=Up, 7=Down, 8=R, 9=L.
+        window.addEventListener('DOMContentLoaded', function () {
+            if (window.NexusIodine) {
+                window.NexusIodine.init('nexus-screen');
+            }
+            var buttons = document.querySelectorAll('.nexus-btn[data-gba-index]');
+            buttons.forEach(function (btn) {
+                var index = parseInt(btn.getAttribute('data-gba-index'), 10);
+                var down = function (e) {
+                    e.preventDefault();
+                    btn.classList.add('active');
+                    if (window.NexusIodine) {
+                        window.NexusIodine.keyDown(index);
+                    }
+                };
+                var up = function (e) {
+                    e.preventDefault();
+                    btn.classList.remove('active');
+                    if (window.NexusIodine) {
+                        window.NexusIodine.keyUp(index);
+                    }
+                };
+                btn.addEventListener('touchstart', down, { passive: false });
+                btn.addEventListener('touchend', up, { passive: false });
+                btn.addEventListener('touchcancel', up, { passive: false });
+                btn.addEventListener('mousedown', down);
+                btn.addEventListener('mouseup', up);
+                btn.addEventListener('mouseleave', up);
+            });
+        });
+    </script>
 </body>
 </html>

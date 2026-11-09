@@ -508,17 +508,17 @@ object EngineManager {
 
     /**
      * Membangun Intent instalasi paket Android menggunakan FileProvider resmi.
+     * JANGAN gunakan Uri.fromFile() sebagai fallback: intent yang membawa
+     * file:// URI melempar FileUriExposedException di Android 24+. Jika
+     * FileProvider gagal, lempar IllegalStateException dan biarkan pemanggil
+     * menampilkannya sebagai pesan error.
      */
     fun buildInstallIntent(context: Context, apkFile: File): Intent {
-        val apkUri: Uri = try {
-            FileProvider.getUriForFile(
-                context,
-                "${context.packageName}.fileprovider",
-                apkFile
-            )
-        } catch (_: Exception) {
-            Uri.fromFile(apkFile)
-        }
+        val apkUri: Uri = FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.fileprovider",
+            apkFile
+        )
 
         return Intent(Intent.ACTION_VIEW).apply {
             setDataAndType(apkUri, "application/vnd.android.package-archive")

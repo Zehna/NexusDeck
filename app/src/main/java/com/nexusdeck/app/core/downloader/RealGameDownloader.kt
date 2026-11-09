@@ -41,6 +41,31 @@ class RealGameDownloader(private val context: Context) {
 
     companion object {
         /**
+         * Minimum download size by file type. GBA ROMs are small by nature
+         * (legitimate ones can be under 1 MiB), so they get a 256 KiB floor;
+         * disc images (ISO/CHD/CSO) and everything else get a 1 MiB floor.
+         * Files below the floor are dummy/corrupt downloads, not games.
+         */
+        fun minimumDownloadBytes(game: GameItem): Long {
+            val ext = game.platform.defaultExtension.lowercase()
+            return when (ext) {
+                "gba", "agb" -> 256L * 1024L
+                else -> 1024L * 1024L
+            }
+        }
+
+        /**
+         * The file DownloadManager actually writes to when the request uses
+         * setDestinationInExternalFilesDir(context, null, subPath): the
+         * app-private external files dir, NOT the public games dir.
+         * Returns null when the external files dir is unavailable.
+         */
+        fun downloadManagerFile(context: Context, subPath: String): File? {
+            val base = context.getExternalFilesDir(null) ?: return null
+            return File(base, subPath)
+        }
+
+        /**
          * Memeriksa apakah byte awal atau header file merupakan teks dokumen HTML redirect
          * (seperti <!DOCTYPE html> atau <html).
          */
@@ -132,9 +157,17 @@ class RealGameDownloader(private val context: Context) {
         val extension = game.platform.defaultExtension
         val fileName = "${game.id}.$extension"
         val subPath = "games/${game.platform.name.lowercase()}/$fileName"
-        val destinationFile = File(getPlatformGamesDir(game.platform), fileName)
-        if (destinationFile.exists()) {
-            destinationFile.delete()
+        // Canonical download location: the file DownloadManager actually
+        // writes to (app-private external files dir). The public games dir
+        // is only a copy target afterwards — never report it as the
+        // downloaded file unless the copy really landed there.
+        val downloadManagerDestination = downloadManagerFile(context, subPath)
+        val publicDestination = File(getPlatformGamesDir(game.platform), fileName)
+        if (downloadManagerDestination?.exists() == true) {
+            downloadManagerDestination.delete()
+        }
+        if (publicDestination.exists()) {
+            publicDestination.delete()
         }
 
         val request = try {
@@ -182,7 +215,7 @@ class RealGameDownloader(private val context: Context) {
                             pendingTicks++
                             if (pendingTicks > 12) {
                                 manager.remove(downloadId)
-                                emit(RealDownloadProgress.Failed("Switching to Direct Nexus Stream Engine"))
+                                emit(RealDownloadProgress.Failed("Unduhan tertunda terlalu lama."))
                                 isActive = false
                             } else {
                                 emit(
@@ -212,28 +245,62 @@ class RealGameDownloader(private val context: Context) {
                                 pendingTicks++
                                 if (pendingTicks > 10) {
                                     manager.remove(downloadId)
-                                    emit(RealDownloadProgress.Failed("Switching to Direct Nexus Stream Engine"))
+                                    emit(RealDownloadProgress.Failed("Unduhan gagal dimulai (tidak ada progres)."))
                                     isActive = false
                                 }
                             }
                         }
 
                         DownloadManager.STATUS_SUCCESSFUL -> {
-                            // Validasi Header Biner ROM: Cegah penyimpanan file teks HTML redirect sebagai file ROM
-                            if (destinationFile.exists() && !isRomBinaryValid(destinationFile)) {
-                                destinationFile.delete()
-                                emit(
-                                    RealDownloadProgress.Failed(
-                                        "File unduhan terdeteksi sebagai halaman HTML redirect, bukan biner ROM game murni."
+                            // The file DownloadManager wrote is the ONLY file
+                            // we may validate and return. Validate it, then
+                            // copy it to the public games dir when writable;
+                            // if the copy fails, return the app-private path
+                            // that actually exists — never a path to a file
+                            // that does not exist.
+                            val downloadedFile = downloadManagerDestination
+                            val minimumBytes = minimumDownloadBytes(game)
+                            when {
+                                downloadedFile == null || !downloadedFile.exists() -> {
+                                    emit(
+                                        RealDownloadProgress.Failed(
+                                            "Unduhan selesai tetapi file hasil unduhan tidak ditemukan."
+                                        )
                                     )
-                                )
-                            } else {
-                                emit(
-                                    RealDownloadProgress.Completed(
-                                        downloadId = downloadId,
-                                        localFilePath = destinationFile.absolutePath
+                                }
+                                !isRomBinaryValid(downloadedFile) -> {
+                                    downloadedFile.delete()
+                                    emit(
+                                        RealDownloadProgress.Failed(
+                                            "File unduhan terdeteksi sebagai halaman HTML redirect, bukan biner ROM game murni."
+                                        )
                                     )
-                                )
+                                }
+                                downloadedFile.length() < minimumBytes -> {
+                                    downloadedFile.delete()
+                                    emit(
+                                        RealDownloadProgress.Failed(
+                                            "Download gagal: File corrupt/dummy"
+                                        )
+                                    )
+                                }
+                                else -> {
+                                    val finalFile = try {
+                                        publicDestination.parentFile?.mkdirs()
+                                        downloadedFile.copyTo(publicDestination, overwrite = true)
+                                        publicDestination
+                                    } catch (_: Exception) {
+                                        // Public dir not writable (scoped
+                                        // storage): keep the app-private file.
+                                        downloadedFile
+                                    }
+                                    emit(
+                                        RealDownloadProgress.Completed(
+                                            downloadId = downloadId,
+                                            localFilePath = finalFile.absolutePath
+                                        )
+                                    )
+                                }
                             }
                             isActive = false
                         }
@@ -241,7 +308,7 @@ class RealGameDownloader(private val context: Context) {
                         DownloadManager.STATUS_FAILED -> {
                             emit(
                                 RealDownloadProgress.Failed(
-                                    "Unduhan jaringan dialihkan ke Direct Nexus Stream Engine."
+                                    "Unduhan gagal (DownloadManager)."
                                 )
                             )
                             isActive = false
@@ -269,22 +336,20 @@ class RealGameDownloader(private val context: Context) {
     }.flowOn(Dispatchers.IO)
 
     /**
-     * Membuat file ROM/paket terverifikasi di dalam /games/[platform]/ setelah proses unduhan selesai.
+     * Returns the path of an already-downloaded, validated game file in the
+     * public /games/[platform]/ dir — or null when there is none.
+     *
+     * This REPLACES the old writeVerifiedLocalGameFile(), which fabricated a
+     * text file ("NEXUSDECK_ROM_CONTAINER...") and returned it as if it were
+     * a real ROM. That fabrication is deleted by design: this function never
+     * writes anything, it only verifies a file that already exists.
      */
-    fun writeVerifiedLocalGameFile(game: GameItem): String {
+    fun getVerifiedLocalGameFile(game: GameItem): String? {
         val extension = game.platform.defaultExtension
-        val dir = getPlatformGamesDir(game.platform)
-        val file = File(dir, "${game.id}.$extension")
-        return try {
-            if (!file.exists() || !isRomBinaryValid(file)) {
-                file.parentFile?.mkdirs()
-                file.writeBytes(
-                    ("NEXUSDECK_ROM_CONTAINER\nTITLE=${game.title}\nPLATFORM=${game.platform.name}\nSIZE=${game.fileSizeLabel}\nSOURCE=${game.downloadUrl}\n").toByteArray(StandardCharsets.UTF_8)
-                )
-            }
-            file.absolutePath
-        } catch (_: Exception) {
-            "${com.nexusdeck.app.core.storage.NexusStorageManager.PUBLIC_BASE_PATH}/games/${game.platform.name.lowercase()}/${game.id}.$extension"
-        }
+        val file = File(getPlatformGamesDir(game.platform), "${game.id}.$extension")
+        if (!file.exists() || !file.isFile) return null
+        if (!isRomBinaryValid(file)) return null
+        if (file.length() < minimumDownloadBytes(game)) return null
+        return file.absolutePath
     }
 }

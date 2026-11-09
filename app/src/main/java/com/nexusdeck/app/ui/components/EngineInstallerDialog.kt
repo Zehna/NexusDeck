@@ -308,8 +308,16 @@ fun EngineInstallerDialog(
                                 } else {
                                     // Panggil ulang prompt installer jika user menutupnya tidak sengaja
                                     downloadedApkFile?.let { apk ->
-                                        val intent = EngineManager.buildInstallIntent(context, apk)
-                                        context.startActivity(intent)
+                                        try {
+                                            val intent = EngineManager.buildInstallIntent(context, apk)
+                                            context.startActivity(intent)
+                                        } catch (e: Exception) {
+                                            Toast.makeText(
+                                                context,
+                                                "Gagal membuka installer: ${e.localizedMessage ?: "FileProvider error"}",
+                                                Toast.LENGTH_LONG
+                                            ).show()
+                                        }
                                     }
                                 }
                             },

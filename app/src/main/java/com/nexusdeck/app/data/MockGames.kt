@@ -7,6 +7,15 @@ import com.nexusdeck.app.core.model.TargetEmulator
 object MockGames {
 
     /**
+     * WARNING — catalog URLs below are UNVERIFIED placeholders. They were
+     * never checked to point at real, downloadable game files (spot checks
+     * on 2026-11-09: pokemon_emerald.gba and castlevania_sotn.chd returned
+     * HTTP 503 from archive.org; gow_ghost_of_sparta.iso 302-redirected to
+     * an unverified host). Do NOT present them as verified downloads and do
+     * NOT "fix" them to real commercial ROM links. The app must only load
+     * user-owned / homebrew ROMs; RealGameDownloader rejects anything that
+     * fails binary/size validation.
+     *
      * Featured Catalog (16 Game Populer Lintas Platform: PS1, PSP, PS2, PC, PS3, Nintendo)
      * Menggunakan URL Box Art Resmi Wikipedia & Steam CDN (Zero Unsplash Stock Photos).
      */

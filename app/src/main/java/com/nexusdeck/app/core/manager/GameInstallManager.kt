@@ -11,7 +11,6 @@ import com.nexusdeck.app.data.MockGames
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -142,9 +141,15 @@ class GameInstallManager(
     }
 
     /**
-     * Mengunduh game langsung ke folder publik bersama /NexusDeck/games/[platform]/,
-     * otomatis mengunduh BIOS / Firmware resmi jika platform memerlukannya (PS1, PS2, PS3),
-     * memvalidasi biner ROM, serta memicu Auto-Play Pipeline untuk direct gameplay boot.
+     * Installs a game for real: collects RealGameDownloader.downloadGameFile()
+     * and surfaces its actual progress. A game is only marked Installed when
+     * the flow emits RealDownloadProgress.Completed with a validated file.
+     *
+     * v1.1.5 deletes the old fake flow (28 steps x 40 ms of invented
+     * progress, an 800 ms fake "extraction", then a fabricated
+     * NEXUSDECK_ROM_CONTAINER text file passed off as a ROM). If the game
+     * was already downloaded and validated, it is marked Installed
+     * immediately without re-downloading.
      */
     fun installGame(game: GameItem) {
         val currentState = getStateForGame(game.id)
@@ -157,34 +162,54 @@ class GameInstallManager(
 
         rememberGameMetadata(game)
 
+        // Already downloaded and validated on disk? Skip the download.
+        realDownloader.getVerifiedLocalGameFile(game)?.let { existingPath ->
+            persistInstalledPath(game.id, existingPath)
+            updateGameState(game.id, GameState.Installed(romPath = existingPath))
+            _autoPlayTrigger.value = AutoPlayEvent(game = game, romPath = existingPath)
+            return
+        }
+
         activeInstallJobs[game.id]?.cancel()
         activeInstallJobs[game.id] = coroutineScope.launch(Dispatchers.Main) {
-            // 1. Alur unduhan game ke folder publik /NexusDeck/games/[platform]/
-            val totalSteps = 28
-            for (step in 1..totalSteps) {
-                val progress = (step.toFloat() / totalSteps.toFloat()) * 0.85f
-                updateGameState(game.id, GameState.Downloading(progress = progress))
-                delay(40L)
-            }
-
-            // 2. Unduh BIOS / Firmware Otomatis sesuai kebutuhan konsol
+            // 1. BIOS / Firmware Otomatis sesuai kebutuhan konsol
+            // (PS1, PS2, PS3) — sebelum mengunduh gamenya.
             val requiredBios = com.nexusdeck.app.core.bios.BiosManager.getRequiredEntryForPlatform(game.platform)
             if (requiredBios != null && !com.nexusdeck.app.core.bios.BiosManager.isBiosOrFirmwareReady(appContext, game.platform)) {
-                updateGameState(game.id, GameState.Downloading(progress = 0.90f))
+                updateGameState(game.id, GameState.Downloading(progress = 0.02f))
                 com.nexusdeck.app.core.bios.BiosManager.ensureBiosReady(appContext, game.platform)
             }
 
-            // 3. Ekstraksi & verifikasi kontainer ROM di /NexusDeck/games/[platform]/
-            updateGameState(game.id, GameState.Extracting)
-            delay(800L)
+            // 2. Unduhan nyata via DownloadManager — progresnya adalah
+            // progres unduhan yang sebenarnya, bukan animasi.
+            try {
+                realDownloader.downloadGameFile(game, game.downloadUrl).collect { progress ->
+                    when (progress) {
+                        is com.nexusdeck.app.core.downloader.RealDownloadProgress.InProgress -> {
+                            updateGameState(game.id, GameState.Downloading(progress = progress.progress))
+                        }
+                        is com.nexusdeck.app.core.downloader.RealDownloadProgress.Completed -> {
+                            val finalRomPath = progress.localFilePath
+                            persistInstalledPath(game.id, finalRomPath)
+                            updateGameState(game.id, GameState.Installed(romPath = finalRomPath))
 
-            val finalRomPath = realDownloader.writeVerifiedLocalGameFile(game)
-            persistInstalledPath(game.id, finalRomPath)
-            updateGameState(game.id, GameState.Installed(romPath = finalRomPath))
-
-            // 4. Auto-Play Pipeline Trigger: otomatis luncurkan / boot game
-            _autoPlayTrigger.value = AutoPlayEvent(game = game, romPath = finalRomPath)
-            activeInstallJobs.remove(game.id)
+                            // 3. Auto-Play Pipeline Trigger: otomatis luncurkan / boot game
+                            _autoPlayTrigger.value = AutoPlayEvent(game = game, romPath = finalRomPath)
+                            activeInstallJobs.remove(game.id)
+                        }
+                        is com.nexusdeck.app.core.downloader.RealDownloadProgress.Failed -> {
+                            updateGameState(game.id, GameState.Failed(message = progress.reason))
+                            activeInstallJobs.remove(game.id)
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                updateGameState(
+                    game.id,
+                    GameState.Failed(message = e.localizedMessage ?: "Unduhan gagal.")
+                )
+                activeInstallJobs.remove(game.id)
+            }
         }
     }
 

@@ -816,6 +816,41 @@ private fun GameActionSection(
             }
         }
 
+        is GameState.Failed -> {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = "✕ ${gameState.message}",
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontWeight = FontWeight.SemiBold
+                    ),
+                    color = Color(0xFFF87171)
+                )
+                Text(
+                    text = "Target Direktori: $platformFolder • Ukuran Paket: ${game.fileSizeLabel}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = NexusPalette.TextSecondary
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(54.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(brush = NexusPalette.VioletGradient)
+                        .clickable(onClick = onInstallClick),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "↻ Coba Unduh Lagi (${game.fileSizeLabel})",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.ExtraBold,
+                            letterSpacing = 0.4.sp
+                        ),
+                        color = Color.White
+                    )
+                }
+            }
+        }
+
         is GameState.Installed -> {
             Column(
                 verticalArrangement = Arrangement.spacedBy(10.dp)

@@ -16,6 +16,7 @@ import java.io.File
 
 sealed class LauncherResult {
     data object Launched : LauncherResult()
+    data class LaunchedWithNotice(val message: String) : LauncherResult()
     data class EmulatorNotFound(
         val emulatorName: String,
         val packageName: String,
@@ -32,18 +33,18 @@ object GameLauncher {
     /**
      * Menghasilkan URI yang aman untuk file ROM lokal menggunakan FileProvider.
      * Mengeliminasi FileUriExposedException pada Android modern (SDK 24+).
+     * JANGAN gunakan Uri.fromFile() di sini: intent yang membawa file:// URI
+     * akan melempar FileUriExposedException di Android 24+. Jika FileProvider
+     * gagal, lempar IllegalStateException agar launchGame() bisa mengubahnya
+     * menjadi LauncherResult.LaunchError, bukan URI file mentah.
      */
     fun getSafeRomUri(context: Context, romPath: String): Uri {
         val file = File(romPath)
-        return try {
-            FileProvider.getUriForFile(
-                context,
-                "${context.packageName}.fileprovider",
-                file
-            )
-        } catch (_: Exception) {
-            Uri.fromFile(file)
-        }
+        return FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.fileprovider",
+            file
+        )
     }
 
     /**
@@ -165,9 +166,12 @@ object GameLauncher {
                     putExtra("rom_path", romPath)
                 }
                 resolvedPackage.contains("lemuroid") -> {
-                    setDataAndType(romUri, "application/octet-stream")
-                    putExtra("rom_path", romPath)
-                    putExtra("bootPath", romPath)
+                    // Lemuroid has NO documented direct-ROM-boot Intent and no
+                    // launchable component for a ROM path. Do not invent one:
+                    // launchGame() handles Lemuroid separately via a plain
+                    // package launch intent (fallback only). This branch is
+                    // intentionally a no-op so a generic ACTION_VIEW is never
+                    // sent to Lemuroid with a ROM it cannot open.
                 }
             }
         }
@@ -187,6 +191,20 @@ object GameLauncher {
     ): LauncherResult {
         val engine = EngineManager.getEngineForGame(game)
         val installedPackage = EngineManager.getInstalledPackage(context, engine)
+
+        // Freedoom guard: Freedoom is a .zip containing .wad files, not a PC
+        // game GameNative/Winlator can run — a .wad needs a Doom engine
+        // (Delta Touch / GZDoom). There is no GOG routing anywhere in the
+        // app; do not launch GameNative for it.
+        if (game.id == "pc_freedoom" || game.downloadUrl.endsWith("freedoom-0.12.1.zip")) {
+            return LauncherResult.LaunchError(
+                "Freedoom membutuhkan Doom engine (Delta Touch / GZDoom) — " +
+                    "GameNative tidak bisa menjalankan file .wad. Ekstrak " +
+                    "freedoom1.wad dari freedoom-0.12.1.zip ke " +
+                    "/storage/emulated/0/NexusDeck/games/pc/freedoom/, lalu buka " +
+                    "dengan Delta Touch / GZDoom."
+            )
+        }
 
         val rule = PlatformExecutionMatrix.getRule(game.platform)
         val biosReady = BiosManager.isBiosOrFirmwareReady(context, game.platform)
@@ -221,6 +239,37 @@ object GameLauncher {
             )
         }
 
+        // PSP direct boot requires the ROM file to actually exist at the
+        // absolute path handed to PPSSPP via SHORTCUT_PATH; PPSSPP reads it
+        // directly from /storage/emulated/0/NexusDeck/games/psp/.
+        if (engine.id == "ppsspp" || game.platform == com.nexusdeck.app.core.model.GamePlatform.PSP) {
+            if (!File(romPath).exists()) {
+                return LauncherResult.LaunchError(
+                    "File ROM PSP tidak ditemukan: $romPath. Unduh ulang game ini terlebih dahulu."
+                )
+            }
+        }
+
+        // Lemuroid fallback only: Lemuroid has no documented direct-ROM-boot
+        // Intent, so never send it a ROM ACTION_VIEW. Just open the app and
+        // tell the user to point its library folder (once, via SAF) at the
+        // shared Nintendo games dir.
+        if (engine.id == "lemuroid") {
+            val packageIntent = context.packageManager.getLaunchIntentForPackage(installedPackage)
+                ?.apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+            return if (packageIntent != null) {
+                context.startActivity(packageIntent)
+                LauncherResult.LaunchedWithNotice(
+                    "Lemuroid dibuka. Arahkan folder library Lemuroid (sekali saja, " +
+                        "via Storage Access Framework) ke " +
+                        "/storage/emulated/0/NexusDeck/games/nintendo/ agar game " +
+                        "Nintendo kamu muncul di sana."
+                )
+            } else {
+                LauncherResult.LaunchError("Tidak dapat membuka Lemuroid.")
+            }
+        }
+
         return try {
             val launchIntent = buildLaunchIntent(
                 context = context,
@@ -235,23 +284,36 @@ object GameLauncher {
                 context.startActivity(launchIntent)
                 LauncherResult.Launched
             } catch (anfe: android.content.ActivityNotFoundException) {
-                Log.w(TAG, "Direct component launch failed, trying package launch intent: ${anfe.message}")
-                val fallbackIntent = context.packageManager.getLaunchIntentForPackage(installedPackage)?.apply {
+                Log.w(TAG, "Direct component launch failed, trying ACTION_VIEW fallback: ${anfe.message}")
+                // Fallback 1: plain ACTION_VIEW with the FileProvider URI and
+                // SHORTCUT_PATH, but WITHOUT an explicit component.
+                val viewFallback = Intent(Intent.ACTION_VIEW).apply {
+                    setDataAndType(getSafeRomUri(context, romPath), "application/octet-stream")
+                    setPackage(installedPackage)
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     clipData = android.content.ClipData.newRawUri("ROM_URI", getSafeRomUri(context, romPath))
-                    setDataAndType(getSafeRomUri(context, romPath), "application/octet-stream")
                     putExtra("rom_path", romPath)
                     putExtra("bootPath", romPath)
                     putExtra("SHORTCUT_PATH", romPath)
                     putExtra("game_id", game.id)
                 }
-
-                if (fallbackIntent != null) {
-                    context.startActivity(fallbackIntent)
+                try {
+                    context.startActivity(viewFallback)
                     LauncherResult.Launched
-                } else {
-                    LauncherResult.LaunchError("Tidak dapat membuka ${engine.name}.")
+                } catch (_: android.content.ActivityNotFoundException) {
+                    // Fallback 2: plain package launch intent (app's own
+                    // launcher activity, no ROM attached).
+                    Log.w(TAG, "ACTION_VIEW fallback failed, trying package launch intent.")
+                    val fallbackIntent = context.packageManager.getLaunchIntentForPackage(installedPackage)?.apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    if (fallbackIntent != null) {
+                        context.startActivity(fallbackIntent)
+                        LauncherResult.Launched
+                    } else {
+                        LauncherResult.LaunchError("Tidak dapat membuka ${engine.name}.")
+                    }
                 }
             }
         } catch (e: Exception) {

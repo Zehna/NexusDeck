@@ -209,6 +209,11 @@ fun DashboardScreen(
                     pendingAutoPlayGame = null
                     Toast.makeText(context, "Memulai ${game.title}...", Toast.LENGTH_SHORT).show()
                 }
+                is LauncherResult.LaunchedWithNotice -> {
+                    selectedGameForSheet = null
+                    pendingAutoPlayGame = null
+                    Toast.makeText(context, result.message, Toast.LENGTH_LONG).show()
+                }
                 is LauncherResult.EmulatorNotFound -> {
                     pendingAutoPlayGame = game
                     missingEmulatorResult = result
@@ -250,6 +255,10 @@ fun DashboardScreen(
                 when (result) {
                     is LauncherResult.Launched -> {
                         activeGameSession = null
+                    }
+                    is LauncherResult.LaunchedWithNotice -> {
+                        activeGameSession = null
+                        Toast.makeText(context, result.message, Toast.LENGTH_LONG).show()
                     }
                     is LauncherResult.EmulatorNotFound -> {
                         activeGameSession = null
@@ -697,6 +706,10 @@ fun DashboardScreen(
                 when (result) {
                     is LauncherResult.Launched -> {
                         selectedGameForSheet = null
+                    }
+                    is LauncherResult.LaunchedWithNotice -> {
+                        selectedGameForSheet = null
+                        Toast.makeText(context, result.message, Toast.LENGTH_LONG).show()
                     }
                     is LauncherResult.EmulatorNotFound -> {
                         missingEmulatorResult = result
@@ -1194,6 +1207,7 @@ private fun PosterInstallBadge(gameState: GameState) {
         }
         is GameState.Extracting -> "Optimizing..." to Color(0xFFFACC15)
         is GameState.Installed -> "✓ INSTALLED" to Color(0xFF22C55E)
+        is GameState.Failed -> "✕ DOWNLOAD GAGAL" to Color(0xFFEF4444)
         is GameState.NotInstalled -> "" to Color.Transparent
     }
 
