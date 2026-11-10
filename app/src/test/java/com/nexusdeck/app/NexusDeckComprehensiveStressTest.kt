@@ -1294,12 +1294,15 @@ class NexusDeckComprehensiveStressTest {
         val ps1 = BiosManager.ps1Bios
         assertEquals("scph1001.bin", ps1.fileName)
         assertEquals(GamePlatform.PS1, ps1.platform)
-        assertTrue(ps1.downloadUrl.contains("archive.org"))
+        // v1.4.0 — BIOS PS1 TIDAK lagi diunduh otomatis (firmware
+        // berhak cipta Sony; impor manual dari dump konsol sendiri).
+        assertTrue(ps1.downloadUrl.isBlank())
 
         val ps2 = BiosManager.ps2Bios
         assertEquals("scph39001.bin", ps2.fileName)
         assertEquals(GamePlatform.PS2, ps2.platform)
-        assertTrue(ps2.downloadUrl.contains("archive.org"))
+        // v1.4.0 — BIOS PS2 juga tidak lagi diunduh otomatis.
+        assertTrue(ps2.downloadUrl.isBlank())
 
         val ps3 = BiosManager.ps3Firmware
         assertEquals("PS3UPDAT.PUP", ps3.fileName)
