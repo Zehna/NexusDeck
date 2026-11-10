@@ -51,6 +51,7 @@ object GameLauncher {
      * Membangun Intent peluncuran dengan parameter URI FileProvider, flags perizinan baca,
      * serta extras spesifik untuk booting langsung ke game pada target emulator:
      * - PPSSPP: SHORTCUT_PATH & bootPath
+     * - DuckStation: ACTION_MAIN + ComponentName EmulationActivity + bootPath (content URI)
      * - NetherSX2 / AetherSX2: bootPath & source
      * - Lime3DS / Azahar: GamePath
      * - GameNative / Winlator: game_path & container_id
@@ -114,21 +115,26 @@ object GameLauncher {
                     }
                 }
                 resolvedPackage.contains("duckstation") -> {
-                    // DuckStation (PS1): Direct Boot ke EmulationActivity dengan verifikasi BIOS scph1001.bin
+                    // DuckStation (PS1): cara boot yang terdokumentasi (Argosy,
+                    // Daijisho, wiki Retroid) adalah ACTION_MAIN + ComponentName
+                    // eksplisit ke EmulationActivity + extra "bootPath" berisi
+                    // content URI — BUKAN path file mentah, dan BUKAN
+                    // ACTION_VIEW: tidak ada bukti EmulationActivity mendukung
+                    // ACTION_VIEW atau membaca Intent.getData(), jadi jangan
+                    // kirim data/MIME type. FLAG_GRANT_READ_URI_PERMISSION dan
+                    // clipData sudah dipasang di atas. BIOS PS1 wajib dan harus
+                    // diimpor lewat setup wizard DuckStation sendiri — extra
+                    // bios_path tidak dibaca DuckStation, jadi tidak dikirim.
                     val activityClass = if (resolvedPackage == "com.github.stenzek.duckstation") {
                         "com.github.stenzek.duckstation.EmulationActivity"
                     } else {
                         "org.duckstation.android.EmulationActivity"
                     }
+                    action = Intent.ACTION_MAIN
                     component = android.content.ComponentName(resolvedPackage, activityClass)
-                    setDataAndType(romUri, "application/octet-stream")
-                    putExtra("bootPath", romPath)
-                    putExtra("isoPath", romPath)
-                    val biosFile = BiosManager.getTargetFileForEntry(context, BiosManager.ps1Bios)
-                    if (biosFile.exists()) {
-                        putExtra("bios_path", biosFile.absolutePath)
-                        putExtra("biosPath", biosFile.absolutePath)
-                    }
+                    data = null
+                    type = null
+                    putExtra("bootPath", romUri.toString())
                 }
                 resolvedPackage.contains("aps3e") || resolvedPackage.contains("armsx3") || resolvedPackage.contains("tinyproot") || resolvedPackage.contains("rpcs3") -> {
                     // APS3e / ARMSX3 (PS3): Direct Boot dengan parameter path game folder dan firmware terpasang

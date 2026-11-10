@@ -77,26 +77,25 @@ data class RomBookmark(
     val categoryBadge: String
 )
 
+// Hanya situs yang terverifikasi HIDUP (cek live 10 Nov 2026) yang ditampilkan,
+// langsung ke halaman katalog game-nya — bukan homepage. Yang MATI sudah dihapus:
+// CDRomance (DNS gagal, down sejak ~31 Okt 2026) dan Myrient (tutup permanen
+// 31 Mar 2026, yang tersisa hanya halaman perpisahan).
 val DEFAULT_ROM_BOOKMARKS = listOf(
     RomBookmark(
-        name = "Myrient",
-        url = "https://myrient.erista.me/files/",
-        categoryBadge = "Verified No-Intro & Redump"
-    ),
-    RomBookmark(
-        name = "CDRomance",
-        url = "https://cdromance.org/",
-        categoryBadge = "PS2 / PSP / Translations"
-    ),
-    RomBookmark(
         name = "Vimm's Lair",
-        url = "https://vimm.net/vault/",
-        categoryBadge = "Emulation Vault"
+        url = "https://vimm.net/vault/PS1",
+        categoryBadge = "Vault PS1 / PSP / GBA / 3DS"
     ),
     RomBookmark(
         name = "NoPayStation",
-        url = "https://nopaystation.com/",
+        url = "https://nopaystation.com/browse",
         categoryBadge = "PS3 & PSP Direct PKG"
+    ),
+    RomBookmark(
+        name = "RomsFun",
+        url = "https://romsfun.com/roms/",
+        categoryBadge = "Login Google diperlukan"
     ),
     RomBookmark(
         name = "Archive.org",
@@ -110,7 +109,7 @@ val DEFAULT_ROM_BOOKMARKS = listOf(
 fun NexusWebBrowser(
     onDownloadIntercepted: (SniffedDownload) -> Unit,
     modifier: Modifier = Modifier,
-    initialUrl: String = "https://myrient.erista.me/files/"
+    initialUrl: String = "https://vimm.net/vault/PS1"
 ) {
     val focusManager = LocalFocusManager.current
     var webViewRef by remember { mutableStateOf<WebView?>(null) }

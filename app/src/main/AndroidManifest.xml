@@ -27,6 +27,16 @@
         <package android:name="org.aps3e" />
         <package android:name="org.duckstation.android" />
         <package android:name="com.armsx3.play" />
+        <!-- v1.3.0: paket-paket di bawah ini WAJIB ada — tanpanya Android 11+
+             package visibility membuat getPackageInfo() gagal dan engine yang
+             sudah terpasang tidak terdeteksi (dialog "Engine Diperlukan" terus
+             muncul meski engine sudah diinstal dari Play Store). -->
+        <package android:name="com.github.stenzek.duckstation" />
+        <package android:name="org.azahar_emu.azahar" />
+        <package android:name="aenu.aps3e" />
+        <package android:name="com.tinyproot.aps3e" />
+        <package android:name="org.rpcs3" />
+        <package android:name="com.winlator" />
     </queries>
 
     <application
