@@ -12,8 +12,8 @@ android {
         applicationId = "com.nexusdeck.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 11
-        versionName = "1.2.0"
+        versionCode = 12
+        versionName = "1.2.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -21,7 +21,25 @@ android {
         }
     }
 
+    // Stabilkan tanda tangan APK: tanpa ini, setiap run CI membuat debug
+    // keystore baru sehingga tiap rilis punya sertifikat berbeda dan Android
+    // menolak update dari versi lama. Keystore ini (keystore/debug.keystore,
+    // kredensial debug standar "android") di-commit ke repo agar semua build
+    // CI memakai kunci yang sama. v1.2.1 tetap butuh hapus-pasang sekali
+    // (v1.2.0 memakai kunci acak CI); mulai v1.2.1, update bisa langsung timpa.
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("../keystore/debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("debug")
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(
