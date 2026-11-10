@@ -25,9 +25,15 @@ data class BiosEntry(
 )
 
 /**
- * Modul Pengunduh & Pengelola BIOS / Firmware Otomatis.
- * Menyediakan repositori resmi publik untuk BIOS PS1, PS2, serta Firmware Resmi Sony PS3.
- * Memastikan berkas tersedia di folder /NexusDeck/bios/ atau /NexusDeck/firmware/ sebelum game dibooting.
+ * Modul Pengelola BIOS / Firmware.
+ *
+ * BIOS PS1/PS2 adalah firmware berhak cipta Sony — NexusDeck TIDAK
+ * menyediakan, mengunduh, atau menautkan unduhan BIOS. Pengguna
+ * mengimpor BIOS miliknya sendiri (dump dari konsol sendiri) lewat
+ * wizard emulator masing-masing; lihat layar Panduan BIOS di tab
+ * Library. Satu-satunya berkas yang diunduh otomatis adalah firmware
+ * PS3 (PS3UPDAT.PUP), karena Sony mendistribusikannya gratis lewat
+ * server update resminya.
  */
 object BiosManager {
 
@@ -41,18 +47,22 @@ object BiosManager {
         id = "bios_ps1_scph1001",
         fileName = "scph1001.bin",
         platform = GamePlatform.PS1,
-        downloadUrl = "https://archive.org/download/SonyPlayStationBIOS/SCPH1001.BIN",
+        // Tidak ada sumber unduhan: BIOS PS1 adalah firmware berhak
+        // cipta Sony. Impor manual lewat wizard DuckStation.
+        downloadUrl = "",
         estimatedSizeLabel = "512 KB",
-        description = "PlayStation 1 (PSX) System BIOS SCPH-1001 NTSC-U untuk DuckStation."
+        description = "PlayStation 1 (PSX) System BIOS SCPH-1001 NTSC-U untuk DuckStation. Impor manual lewat wizard DuckStation."
     )
 
     val ps2Bios = BiosEntry(
         id = "bios_ps2_scph39001",
         fileName = "scph39001.bin",
         platform = GamePlatform.PS2,
-        downloadUrl = "https://archive.org/download/ps2-bios-pack/SCPH-39001.bin",
+        // Tidak ada sumber unduhan: BIOS PS2 adalah firmware berhak
+        // cipta Sony. Impor manual lewat wizard AetherSX2/NetherSX2.
+        downloadUrl = "",
         estimatedSizeLabel = "4 MB",
-        description = "PlayStation 2 Official NTSC BIOS SCPH-39001 untuk NetherSX2/AetherSX2."
+        description = "PlayStation 2 Official NTSC BIOS SCPH-39001 untuk NetherSX2/AetherSX2. Impor manual lewat wizard emulator."
     )
 
     val ps3Firmware = BiosEntry(
@@ -108,7 +118,14 @@ object BiosManager {
 
     /**
      * Memastikan berkas BIOS atau Firmware yang dibutuhkan konsol telah tersedia di HP.
-     * Jika belum ada, otomatis mengunduhnya dari CDN resmi ke folder yang sesuai.
+     *
+     * BIOS PS1/PS2 TIDAK diunduh: firmware berhak cipta Sony itu harus
+     * diimpor pengguna sendiri (dump dari konsol sendiri) lewat wizard
+     * emulator masing-masing. Jika belum ada, fungsi ini mengembalikan
+     * null dan game tetap diluncurkan — emulator akan menampilkan
+     * permintaan BIOS-nya sendiri. Hanya firmware PS3 (PS3UPDAT.PUP)
+     * yang diunduh, karena Sony mendistribusikannya gratis lewat server
+     * update resminya.
      */
     suspend fun ensureBiosReady(
         context: Context,
@@ -122,6 +139,11 @@ object BiosManager {
             Log.i(TAG, "BIOS/Firmware '${entry.fileName}' sudah siap di ${targetFile.absolutePath}")
             onProgress(1f)
             return@withContext targetFile
+        }
+
+        if (entry.platform != GamePlatform.PS3) {
+            Log.i(TAG, "BIOS ${entry.fileName} belum ada — impor manual lewat wizard emulator (lihat Panduan BIOS).")
+            return@withContext null
         }
 
         Log.i(TAG, "Mengunduh ${entry.fileName} dari ${entry.downloadUrl}...")

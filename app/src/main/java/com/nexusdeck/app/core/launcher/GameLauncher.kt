@@ -39,6 +39,9 @@ object GameLauncher {
      * menjadi LauncherResult.LaunchError, bukan URI file mentah.
      */
     fun getSafeRomUri(context: Context, romPath: String): Uri {
+        // File pustaka lokal dari SAF sudah berupa content URI — pakai
+        // langsung. File biasa (path) tetap lewat FileProvider.
+        if (romPath.startsWith("content://")) return Uri.parse(romPath)
         val file = File(romPath)
         return FileProvider.getUriForFile(
             context,
@@ -50,12 +53,12 @@ object GameLauncher {
     /**
      * Membangun Intent peluncuran dengan parameter URI FileProvider, flags perizinan baca,
      * serta extras spesifik untuk booting langsung ke game pada target emulator:
-     * - PPSSPP: SHORTCUT_PATH & bootPath
+     * - PPSSPP: ACTION_VIEW + data (SAF URI), tanpa extra
      * - DuckStation: ACTION_MAIN + ComponentName EmulationActivity + bootPath (content URI)
-     * - NetherSX2 / AetherSX2: bootPath & source
-     * - Lime3DS / Azahar: GamePath
+     * - NetherSX2 / AetherSX2: ACTION_MAIN + bootPath (SAF URI)
+     * - Azahar / Citra: ACTION_MAIN + data (SAF URI), tanpa extra (GamePath hanya Citra MMJ)
      * - GameNative / Winlator: game_path & container_id
-     * - melonDS / Sudachi: Intent ACTION_VIEW dengan URI ROM
+     * - melonDS: ACTION_VIEW + setData(), tanpa extra
      */
     fun buildLaunchIntent(
         context: Context,
@@ -90,29 +93,31 @@ object GameLauncher {
             // Extras spesifik per engine target
             when {
                 resolvedPackage.contains("ppsspp") -> {
-                    // Direct component launch ke PpssppActivity untuk melompati menu dan langsung memutar game
+                    // PPSSPP: ES-DE meluncurkan dengan ACTION_VIEW + data = SAF
+                    // URI, TANPA extra sama sekali. SHORTCUT_PATH / bootPath
+                    // tidak dipakai PPSSPP — jangan kirim. MIME type juga
+                    // tidak dipasang.
                     component = android.content.ComponentName(resolvedPackage, "org.ppsspp.ppsspp.PpssppActivity")
-                    setDataAndType(romUri, "application/octet-stream")
-                    putExtra("org.ppsspp.ppsspp.SHORTCUT_PATH", romPath)
-                    putExtra("SHORTCUT_PATH", romPath)
-                    putExtra("bootPath", romPath)
+                    data = romUri
+                    type = null
                 }
                 resolvedPackage.contains("aethersx2") || resolvedPackage.contains("armsx2") || resolvedPackage.contains("nethersx2") -> {
-                    // Direct component launch ke EmulationActivity NetherSX2/AetherSX2 dengan bootPath absolut
+                    // AetherSX2/NetherSX2: pola yang sama dengan DuckStation
+                    // (terverifikasi dari es_systems.xml ES-DE) — ACTION_MAIN +
+                    // EmulationActivity + extra bootPath berisi SAF URI (bukan
+                    // path mentah). ARMSX2 belum terverifikasi (aktivitas +
+                    // extra masih asumsi) — butuh uji di HP. BIOS PS2 dibaca
+                    // emulator dari penyimpanannya sendiri, bukan dari extra.
                     val activityClass = if (resolvedPackage.contains("armsx2")) {
                         "come.nanodata.armsx2.EmulationActivity"
                     } else {
                         "xyz.aethersx2.android.EmulationActivity"
                     }
+                    action = Intent.ACTION_MAIN
                     component = android.content.ComponentName(resolvedPackage, activityClass)
-                    setDataAndType(romUri, "application/octet-stream")
-                    putExtra("bootPath", romPath)
-                    putExtra("source", "nexusdeck")
-                    val biosFile = BiosManager.getTargetFileForEntry(context, BiosManager.ps2Bios)
-                    if (biosFile.exists()) {
-                        putExtra("bios_path", biosFile.absolutePath)
-                        putExtra("biosPath", biosFile.absolutePath)
-                    }
+                    data = null
+                    type = null
+                    putExtra("bootPath", romUri.toString())
                 }
                 resolvedPackage.contains("duckstation") -> {
                     // DuckStation (PS1): cara boot yang terdokumentasi (Argosy,
@@ -154,11 +159,25 @@ object GameLauncher {
                         putExtra("firmwarePath", fwFile.absolutePath)
                     }
                 }
-                // Azahar adalah penerus Lime3DS (package org.azahar_emu.azahar);
-                // keluarga Citra memakai extra "GamePath" yang sama.
+                // Azahar adalah penerus Lime3DS (package org.azahar_emu.azahar).
+                // KOREKSI: extra "GamePath" HANYA untuk Citra MMJ (dan memakai
+                // path mentah) — hampir pasti TIDAK berlaku untuk Azahar.
+                // Pola Citra mainline (ES-DE): data = SAF URI, tanpa extra.
+                // Aktivitas EmulationActivity dari satu sumber DeepWiki dan
+                // penerimaan SAF URI oleh Azahar belum teruji — butuh uji di HP.
                 resolvedPackage.contains("lime3ds") || resolvedPackage.contains("citra") ||
                     resolvedPackage.contains("azahar") -> {
-                    putExtra("GamePath", romPath)
+                    action = Intent.ACTION_MAIN
+                    data = romUri
+                    type = null
+                    if (resolvedPackage.contains("azahar") || resolvedPackage.contains("citra")) {
+                        component = android.content.ComponentName(
+                            resolvedPackage,
+                            "org.citra.citra_emu.activities.EmulationActivity"
+                        )
+                    }
+                    // Tanpa component untuk Lime3DS: nama aktivitasnya belum
+                    // terverifikasi — intent mengandalkan package + data URI.
                 }
                 resolvedPackage.contains("gamenative") || resolvedPackage.contains("winlator") -> {
                     component = android.content.ComponentName(resolvedPackage, "app.gamenative.MainActivity")
@@ -172,7 +191,12 @@ object GameLauncher {
                     putExtra("GamePath", romPath)
                 }
                 resolvedPackage.contains("melonDS") -> {
-                    putExtra("rom_path", romPath)
+                    // melonDS: README mengutamakan ACTION_VIEW + setData() +
+                    // FLAG_GRANT_READ_URI_PERMISSION (sudah dipasang di atas).
+                    // Extra rom_path tidak terdokumentasi — jangan kirim.
+                    // Alternatif terdokumentasi: aksi kustom LAUNCH_ROM + extra
+                    // uri berisi SAF URI.
+                    type = null
                 }
                 resolvedPackage.contains("lemuroid") -> {
                     // Lemuroid has NO documented direct-ROM-boot Intent and no
@@ -295,17 +319,16 @@ object GameLauncher {
             } catch (anfe: android.content.ActivityNotFoundException) {
                 Log.w(TAG, "Direct component launch failed, trying ACTION_VIEW fallback: ${anfe.message}")
                 // Fallback 1: plain ACTION_VIEW with the FileProvider URI and
-                // SHORTCUT_PATH, but WITHOUT an explicit component.
+                // WITHOUT an explicit component — no boot extras. SHORTCUT_PATH
+                // / bootPath / rom_path are not part of any verified profile
+                // (PPSSPP and melonDS boot from the data URI alone); sending
+                // them here only risks confusing the target.
                 val viewFallback = Intent(Intent.ACTION_VIEW).apply {
-                    setDataAndType(getSafeRomUri(context, romPath), "application/octet-stream")
+                    data = getSafeRomUri(context, romPath)
                     setPackage(installedPackage)
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     clipData = android.content.ClipData.newRawUri("ROM_URI", getSafeRomUri(context, romPath))
-                    putExtra("rom_path", romPath)
-                    putExtra("bootPath", romPath)
-                    putExtra("SHORTCUT_PATH", romPath)
-                    putExtra("game_id", game.id)
                 }
                 try {
                     context.startActivity(viewFallback)

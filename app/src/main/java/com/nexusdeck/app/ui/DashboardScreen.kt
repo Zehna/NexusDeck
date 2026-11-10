@@ -2,6 +2,9 @@ package com.nexusdeck.app.ui
 
 import android.view.KeyEvent
 import android.widget.Toast
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -44,17 +47,13 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -77,10 +76,6 @@ import androidx.compose.ui.unit.sp
 import com.nexusdeck.app.NexusDeckTheme
 import com.nexusdeck.app.core.launcher.GameLauncher
 import com.nexusdeck.app.core.bios.BiosManager
-import com.nexusdeck.app.core.catalog.health.CatalogHealthChecker
-import com.nexusdeck.app.core.catalog.health.CatalogHealthStore
-import com.nexusdeck.app.core.catalog.health.filterVisibleGames
-import com.nexusdeck.app.core.catalog.health.formatLastChecked
 import com.nexusdeck.app.core.downloader.SniffedDownload
 import com.nexusdeck.app.core.launcher.LauncherResult
 import com.nexusdeck.app.core.manager.GameInstallManager
@@ -92,8 +87,6 @@ import com.nexusdeck.app.core.model.GameState
 import com.nexusdeck.app.core.model.HardwareSpec
 import com.nexusdeck.app.core.optimizer.AutoTuningEngine
 import com.nexusdeck.app.core.profiler.HardwareProfiler
-import com.nexusdeck.app.core.repository.OnlineGameCatalogService
-import com.nexusdeck.app.data.MockGames
 import com.nexusdeck.app.ui.browser.NexusWebBrowser
 import com.nexusdeck.app.ui.components.BottomNavBar
 import com.nexusdeck.app.ui.components.CategoryPillFilter
@@ -115,13 +108,16 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import com.nexusdeck.app.ui.components.EmptyStateView
 import com.nexusdeck.app.ui.components.HeroSpotlightCarousel
-import com.nexusdeck.app.ui.components.ShimmerPosterCard
-import com.nexusdeck.app.ui.components.shimmerPlaceholder
 import com.nexusdeck.app.ui.settings.SettingsScreen
 import com.nexusdeck.app.ui.theme.NexusPalette
 import com.nexusdeck.app.core.engine.EngineManager
-import kotlinx.coroutines.delay
+import com.nexusdeck.app.core.library.GameLibraryRules
+import com.nexusdeck.app.core.library.GameLibraryScanner
+import com.nexusdeck.app.core.library.LibraryFolderStore
+import com.nexusdeck.app.core.model.GamePlatform
+import com.nexusdeck.app.ui.bios.BiosGuideScreen
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
 
 private data class ActiveGameSession(
@@ -134,33 +130,88 @@ private data class ActiveGameSession(
 @Composable
 fun DashboardScreen(
     hardwareSpec: HardwareSpec,
-    games: List<GameItem> = MockGames.catalog,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
-    // v1.1.9 — katalog yang menyeleksi sendiri: store kesehatan tautan
-    // (cache + snapshot CI), pemeriksa latar, dan toggle "tampilkan yang
-    // tidak tersedia". Store dibuat dari context aplikasi supaya tetap
-    // hidup selama aplikasi berjalan.
-    val healthStore = remember(context) { CatalogHealthStore(context) }
-    val healthSnapshot by healthStore.snapshot.collectAsState()
-    val showUnavailable by healthStore.showUnavailable.collectAsState()
-    val healthChecker = remember(healthStore) { CatalogHealthChecker(healthStore) }
-    val isRefreshingHealth by healthChecker.isRefreshing.collectAsState()
-
-    val installManager = remember(context, healthStore) {
-        GameInstallManager(context, coroutineScope, healthStore = healthStore)
+    // v1.4.0 — katalog unduhan ROM dihapus dari aplikasi (Opsi A):
+    // Home menampilkan pustaka lokal milik pengguna (file game yang
+    // sudah ada di HP), bukan daftar game yang bisa diunduh. Kelas
+    // katalog online + pemeriksa kesehatan tautan tidak lagi dipakai di
+    // sini (file-nya masih ada sebagai kode mati; dihapus via Copilot).
+    val installManager = remember(context) {
+        GameInstallManager(context, coroutineScope)
     }
-    val onlineCatalogService = remember { OnlineGameCatalogService() }
 
-    // Muat snapshot bawaan (ditulis CI harian) bila belum ada cache, lalu
-    // periksa tautan katalog unggulan yang sudah basi — tanpa memblokir
-    // tampilan awal: grid tetap tampil dari cache / NOT_CHECKED.
-    LaunchedEffect(Unit) {
-        healthStore.loadBundledSnapshotIfEmpty()
-        healthChecker.refresh(MockGames.catalog, staleOnly = true)
+    // Fase 1 — pustaka lokal (SAF): folder dipilih per sistem, dipindai
+    // rekursif, dan hasilnya didaftarkan sebagai game Installed dengan
+    // content URI sebagai romPath (tanpa unduhan). Folder tersimpan
+    // beserta izin baca persistable-nya di LibraryFolderStore.
+    val libraryFolderStore = remember(context) { LibraryFolderStore(context) }
+    var isScanningLibrary by remember { mutableStateOf(false) }
+    var libraryScannedOnce by remember { mutableStateOf(false) }
+    var pendingFolderUri by remember { mutableStateOf<Uri?>(null) }
+    var showBiosGuide by remember { mutableStateOf(false) }
+    val folderPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocumentTree()
+    ) { uri ->
+        if (uri != null) pendingFolderUri = uri
+    }
+
+    fun rescanLibrary() {
+        val folders = libraryFolderStore.allFolders()
+        if (folders.isEmpty()) {
+            Toast.makeText(
+                context,
+                "Belum ada folder pustaka. Ketuk Tambah Folder dulu.",
+                Toast.LENGTH_SHORT
+            ).show()
+            return
+        }
+        if (isScanningLibrary) return
+        isScanningLibrary = true
+        coroutineScope.launch(Dispatchers.IO) {
+            var foundTotal = 0
+            var skippedTotal = 0
+            var prunedTotal = 0
+            folders.forEach { (folderUriString, platform) ->
+                val treeUri = Uri.parse(folderUriString)
+                val result = GameLibraryScanner.scanFolder(context, treeUri, platform)
+                val newUris = result.files.map { it.contentUri }.toSet()
+                // Prune: game lokal dari folder ini yang filenya sudah
+                // tidak ada di hasil pindai (folder berhasil dipindai).
+                val staleIds = libraryFolderStore.gameIdsForFolder(folderUriString).filter { id ->
+                    val state = installManager.getStateForGame(id)
+                    val uri = (state as? GameState.Installed)?.romPath
+                    uri == null || uri !in newUris
+                }
+                staleIds.forEach { id ->
+                    installManager.removeLocalGame(id)
+                    libraryFolderStore.forgetGame(id)
+                }
+                prunedTotal += staleIds.size
+                val items = result.files.map { file ->
+                    GameLibraryRules.toGameItem(file) to file.contentUri
+                }
+                installManager.registerLocalFiles(items)
+                items.forEach { (game, _) ->
+                    libraryFolderStore.recordGameFolder(game.id, folderUriString)
+                }
+                foundTotal += result.files.size
+                skippedTotal += result.skippedCount
+            }
+            val message = buildString {
+                append("Pustaka diperbarui: $foundTotal game")
+                if (skippedTotal > 0) append(", $skippedTotal file dilewati (format tidak dikenal)")
+                if (prunedTotal > 0) append(", $prunedTotal game dihapus (file tidak ada)")
+            }
+            withContext(Dispatchers.Main) {
+                libraryScannedOnce = true
+                isScanningLibrary = false
+                Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+            }
+        }
     }
 
     val gameStates by installManager.gameStates.collectAsState()
@@ -171,12 +222,6 @@ fun DashboardScreen(
     var selectedBottomTab by remember { mutableStateOf(NexusBottomTab.HOME) }
     var selectedCategoryPill by remember { mutableStateOf(CategoryPillFilter.ALL) }
     var searchQuery by remember { mutableStateOf("") }
-
-    val liveCatalogGames = remember { mutableStateListOf<GameItem>().apply { addAll(games) } }
-    var currentPage by remember { mutableIntStateOf(1) }
-    var isLoadingOnline by remember { mutableStateOf(false) }
-    var isPaginatingMore by remember { mutableStateOf(false) }
-    var canLoadMorePages by remember { mutableStateOf(true) }
 
     var selectedGameForSheet by remember { mutableStateOf<GameItem?>(null) }
     var activeGameSession by remember { mutableStateOf<ActiveGameSession?>(null) }
@@ -295,127 +340,69 @@ fun DashboardScreen(
         return
     }
 
-    // Live Search & Filter terhadap OnlineGameCatalogService
-    LaunchedEffect(searchQuery, selectedCategoryPill) {
-        currentPage = 1
-        canLoadMorePages = !selectedCategoryPill.featuredOnly
+    // Fase 1 — layar Panduan BIOS (teks saja) menggantikan dashboard
+    // selama dibuka, pola yang sama dengan InAppGameScreen di atas.
+    if (showBiosGuide) {
+        BiosGuideScreen(
+            onBack = { showBiosGuide = false }
+        )
+        return
+    }
 
-        if (selectedCategoryPill.featuredOnly && searchQuery.isBlank()) {
-            liveCatalogGames.clear()
-            liveCatalogGames.addAll(MockGames.catalog)
-            isLoadingOnline = false
-            return@LaunchedEffect
-        }
+    // v1.4.0 — pencarian & filter kini murni lokal terhadap pustaka
+    // (judul + pill sistem); tidak ada lagi pencarian online maupun
+    // pagination katalog. Logika filter-nya ada di displayedGames.
 
-        if (searchQuery.isNotBlank()) {
-            delay(320L) // Debounce saat pengguna mengetik judul
-        }
-
-        isLoadingOnline = true
-        onlineCatalogService.searchOnlineGames(
-            query = searchQuery,
-            platform = selectedCategoryPill.platform,
-            page = 1
-        ).collect { results ->
-            liveCatalogGames.clear()
-            liveCatalogGames.addAll(results)
-            isLoadingOnline = false
-            // Periksa tautan hasil pencarian yang sudah basi di latar —
-            // grid diperbarui bertahap begitu tiap putusan mendarat di store.
-            coroutineScope.launch {
-                healthChecker.refresh(results, staleOnly = true)
-            }
+    // Fase 1 — pindai pustaka sekali saat pertama kali masuk tab Library
+    // dalam satu sesi (dan folder sudah ada), supaya grid langsung terisi
+    // tanpa menunggu tombol Pindai Ulang.
+    LaunchedEffect(selectedBottomTab) {
+        if (selectedBottomTab == NexusBottomTab.LIBRARY && !libraryScannedOnce &&
+            libraryFolderStore.allFolders().isNotEmpty()
+        ) {
+            rescanLibrary()
         }
     }
 
     val gridState = rememberLazyGridState()
-    val shouldLoadMore by remember {
-        derivedStateOf {
-            val layoutInfo = gridState.layoutInfo
-            val totalItems = layoutInfo.totalItemsCount
-            val lastVisibleIndex = layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-            selectedBottomTab == NexusBottomTab.HOME &&
-                canLoadMorePages &&
-                !isLoadingOnline &&
-                !isPaginatingMore &&
-                totalItems >= 6 &&
-                lastVisibleIndex >= totalItems - 2
-        }
-    }
-
-    // Infinite Scroll Pagination dari Web Repository
-    LaunchedEffect(shouldLoadMore) {
-        if (shouldLoadMore && currentPage < 5) {
-            isPaginatingMore = true
-            val nextPage = currentPage + 1
-            onlineCatalogService.searchOnlineGames(
-                query = searchQuery,
-                platform = selectedCategoryPill.platform,
-                page = nextPage
-            ).collect { moreGames ->
-                val existingIds = liveCatalogGames.map { it.id }.toSet()
-                val uniqueNew = moreGames.filter { it.id !in existingIds }
-                if (uniqueNew.isEmpty()) {
-                    canLoadMorePages = false
-                } else {
-                    liveCatalogGames.addAll(uniqueNew)
-                    currentPage = nextPage
-                }
-                isPaginatingMore = false
-            }
-        }
-    }
 
     val installedCount = remember(gameStates) {
         gameStates.values.count { it is GameState.Installed }
     }
 
+    // v1.4.0 — semua tab menampilkan pustaka lokal: hanya game yang
+    // filenya ada di perangkat (Installed/Downloading/Extracting).
+    // Home menambahkan filter pencarian judul + pill sistem/favorit.
+    val libraryGames = remember(savedLibraryGames, gameStates) {
+        savedLibraryGames.values.filter { game ->
+            val st = gameStates[game.id]
+            st is GameState.Installed || st is GameState.Downloading || st is GameState.Extracting
+        }
+    }
+
     val displayedGames = remember(
         selectedBottomTab,
         selectedCategoryPill,
-        liveCatalogGames.toList(),
-        savedLibraryGames,
-        favoriteIds,
-        gameStates,
-        healthSnapshot,
-        showUnavailable
+        searchQuery,
+        libraryGames,
+        favoriteIds
     ) {
         when (selectedBottomTab) {
             NexusBottomTab.HOME -> {
-                if (selectedCategoryPill.isFavoritesOnly) {
-                    val allKnown = LinkedHashMap<String, GameItem>()
-                    savedLibraryGames.forEach { (id, g) -> allKnown[id] = g }
-                    liveCatalogGames.forEach { allKnown[it.id] = it }
-                    allKnown.values.filter { it.id in favoriteIds }
-                } else {
-                    // v1.1.9 — game yang tautannya terkonfirmasi mati (DEAD)
-                    // disembunyikan dari grid default; game yang belum
-                    // diperiksa atau tidak jelas statusnya tetap tampil.
-                    // Game yang sudah terpasang (tab Library/Favorit) tidak
-                    // difilter — kesehatannya tidak relevan, filenya sudah
-                    // ada di perangkat.
-                    filterVisibleGames(
-                        liveCatalogGames.toList(),
-                        healthSnapshot,
-                        showUnavailable
-                    )
+                libraryGames.filter { game ->
+                    val matchesQuery = searchQuery.isBlank() ||
+                        game.title.contains(searchQuery, ignoreCase = true)
+                    val matchesPill = when {
+                        selectedCategoryPill.isFavoritesOnly -> game.id in favoriteIds
+                        selectedCategoryPill.platform != null ->
+                            game.platform == selectedCategoryPill.platform
+                        else -> true
+                    }
+                    matchesQuery && matchesPill
                 }
             }
-            NexusBottomTab.FAVORITES -> {
-                val allKnown = LinkedHashMap<String, GameItem>()
-                savedLibraryGames.forEach { (id, g) -> allKnown[id] = g }
-                liveCatalogGames.forEach { allKnown[it.id] = it }
-                allKnown.values.filter { it.id in favoriteIds }
-            }
-            NexusBottomTab.LIBRARY -> {
-                val allKnown = LinkedHashMap<String, GameItem>()
-                savedLibraryGames.forEach { (id, g) -> allKnown[id] = g }
-                liveCatalogGames.forEach { allKnown[it.id] = it }
-                allKnown.values.filter { game ->
-                    val st = gameStates[game.id]
-                    st is GameState.Installed || st is GameState.Downloading || st is GameState.Extracting
-                }
-            }
+            NexusBottomTab.FAVORITES -> libraryGames.filter { it.id in favoriteIds }
+            NexusBottomTab.LIBRARY -> libraryGames
             NexusBottomTab.BROWSER,
             NexusBottomTab.SETTINGS -> emptyList()
         }
@@ -493,70 +480,20 @@ fun DashboardScreen(
                 if (selectedBottomTab == NexusBottomTab.HOME) {
                     FullRoidSearchBar(
                         query = searchQuery,
-                        isSearching = isLoadingOnline,
+                        isSearching = false,
                         onQueryChange = { searchQuery = it },
                         onClear = { searchQuery = "" }
                     )
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // 3. Kategori Pills Horizontal Scroll (All, Catalog, PSP, PlayStation 2, PC Games, PlayStation 3)
+                    // 3. Kategori Pills Horizontal Scroll (All, Favorit, PSP, PlayStation 2, PC Games, PlayStation 3)
                     ConsoleFilterTabs(
                         selectedFilter = selectedCategoryPill,
                         onSelectFilter = { selectedCategoryPill = it }
                     )
 
                     Spacer(modifier = Modifier.height(14.dp))
-
-                    // v1.1.9 — baris kesehatan katalog: toggle untuk
-                    // menampilkan game yang tidak tersedia (redup, tombol
-                    // unduh nonaktif) + kapan terakhir tautan diperiksa +
-                    // tombol periksa ulang manual.
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = "Tampilkan yang tidak tersedia",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Switch(
-                                checked = showUnavailable,
-                                onCheckedChange = { healthStore.setShowUnavailable(it) }
-                            )
-                        }
-                        TextButton(
-                            onClick = {
-                                coroutineScope.launch {
-                                    healthChecker.refresh(
-                                        liveCatalogGames.toList(),
-                                        staleOnly = true
-                                    )
-                                }
-                            },
-                            enabled = !isRefreshingHealth
-                        ) {
-                            Text(
-                                text = if (isRefreshingHealth) {
-                                    "Memeriksa…"
-                                } else {
-                                    "Diperiksa ${
-                                        formatLastChecked(
-                                            healthSnapshot?.lastCheckedAtEpochMs,
-                                            System.currentTimeMillis()
-                                        )
-                                    }"
-                                },
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(10.dp))
                 } else {
                     SectionTabBanner(
                         tab = selectedBottomTab,
@@ -565,25 +502,27 @@ fun DashboardScreen(
                     Spacer(modifier = Modifier.height(12.dp))
                 }
 
-                // 4. Grid Katalog 2 Kolom Vertikal ala Poster Box Art + Infinite Scroll + Shimmer Skeleton
-                if (displayedGames.isEmpty() && isLoadingOnline) {
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(2),
-                        contentPadding = PaddingValues(top = 4.dp, bottom = 104.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(14.dp),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        items(6) {
-                            ShimmerPosterCard()
-                        }
-                    }
-                } else if (displayedGames.isEmpty() && !isLoadingOnline) {
+                // Fase 1 — kelola pustaka lokal di tab Library: tambah
+                // folder per sistem, pindai ulang, dan panduan BIOS.
+                if (selectedBottomTab == NexusBottomTab.LIBRARY) {
+                    LibraryManagementRow(
+                        folderCount = libraryFolderStore.allFolders().size,
+                        localGameCount = displayedGames.count { it.id.startsWith("local_") },
+                        isScanning = isScanningLibrary,
+                        onAddFolder = { folderPicker.launch(null) },
+                        onRescan = { rescanLibrary() },
+                        onOpenBiosGuide = { showBiosGuide = true }
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+
+                // 4. Grid Pustaka 2 Kolom Vertikal ala Poster Box Art
+                if (displayedGames.isEmpty()) {
                     if (searchQuery.isNotBlank() || selectedBottomTab == NexusBottomTab.HOME) {
                         EmptyStateView(
                             searchQuery = searchQuery,
-                            onOpenWebExplorer = {
-                                selectedBottomTab = NexusBottomTab.BROWSER
+                            onOpenLibrary = {
+                                selectedBottomTab = NexusBottomTab.LIBRARY
                             },
                             modifier = Modifier.weight(1f)
                         )
@@ -591,9 +530,15 @@ fun DashboardScreen(
                         EmptyTabPlaceholder(
                             tab = selectedBottomTab,
                             onExploreCatalog = {
-                                selectedBottomTab = NexusBottomTab.HOME
-                                selectedCategoryPill = CategoryPillFilter.ALL
-                                searchQuery = ""
+                                if (selectedBottomTab == NexusBottomTab.LIBRARY) {
+                                    // Pustaka kosong: tombol placeholder langsung
+                                    // membuka pemilih folder pustaka.
+                                    folderPicker.launch(null)
+                                } else {
+                                    selectedBottomTab = NexusBottomTab.HOME
+                                    selectedCategoryPill = CategoryPillFilter.ALL
+                                    searchQuery = ""
+                                }
                             },
                             modifier = Modifier.weight(1f)
                         )
@@ -627,8 +572,7 @@ fun DashboardScreen(
                                                 autoTuneEnabled = true
                                             )
                                         } else {
-                                            installManager.installGame(game)
-                                            Toast.makeText(context, "Mengunduh ${game.title}...", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(context, "Game masih disiapkan…", Toast.LENGTH_SHORT).show()
                                         }
                                     }
                                 )
@@ -667,42 +611,6 @@ fun DashboardScreen(
                             )
                         }
 
-                        if (isPaginatingMore) {
-                            item(span = { GridItemSpan(2) }) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                ) {
-                                    ShimmerPosterCard(modifier = Modifier.weight(1f))
-                                    ShimmerPosterCard(modifier = Modifier.weight(1f))
-                                }
-                            }
-                        } else if (isLoadingOnline) {
-                            item(span = { GridItemSpan(2) }) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 18.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                    ) {
-                                        CircularProgressIndicator(
-                                            modifier = Modifier.size(20.dp),
-                                            strokeWidth = 2.5.dp,
-                                            color = NexusPalette.SecondaryPurple
-                                        )
-                                        Text(
-                                            text = "Memuat katalog game online...",
-                                            style = MaterialTheme.typography.labelMedium,
-                                            color = NexusPalette.TextSecondary
-                                        )
-                                    }
-                                }
-                            }
-                        }
                     }
                 }
             }
@@ -714,31 +622,34 @@ fun DashboardScreen(
             installedCount = installedCount,
             onSelectTab = { selectedBottomTab = it },
             onQuickResumeClick = {
-                val allKnown = LinkedHashMap<String, GameItem>().apply {
-                    savedLibraryGames.forEach { (id, g) -> put(id, g) }
-                    liveCatalogGames.forEach { put(it.id, it) }
-                }
-                val resumeCandidate = lastPlayedGameId?.let { allKnown[it] }
-                    ?: allKnown.values.firstOrNull { gameStates[it.id] is GameState.Installed }
+                val resumeCandidate = lastPlayedGameId
+                    ?.let { savedLibraryGames[it] }
+                    ?.takeIf { gameStates[it.id] is GameState.Installed }
+                    ?: savedLibraryGames.values.firstOrNull { gameStates[it.id] is GameState.Installed }
 
                 if (resumeCandidate != null) {
                     val state = gameStates[resumeCandidate.id]
                     val romPath = (state as? GameState.Installed)?.romPath
-                        ?: "/games/${resumeCandidate.platform.name.lowercase()}/${resumeCandidate.id}.iso"
-                    val optimal = AutoTuningEngine.generateOptimalConfig(hardwareSpec, resumeCandidate)
-                    installManager.markLastPlayed(resumeCandidate)
-                    activeGameSession = ActiveGameSession(
-                        game = resumeCandidate,
-                        romPath = romPath,
-                        engineConfig = optimal,
-                        autoTuneActive = true
-                    )
+                    if (romPath.isNullOrBlank()) {
+                        Toast.makeText(
+                            context,
+                            "File game tidak ditemukan.",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    } else {
+                        val optimal = AutoTuningEngine.generateOptimalConfig(hardwareSpec, resumeCandidate)
+                        installManager.markLastPlayed(resumeCandidate)
+                        activeGameSession = ActiveGameSession(
+                            game = resumeCandidate,
+                            romPath = romPath,
+                            engineConfig = optimal,
+                            autoTuneActive = true
+                        )
+                    }
                 } else {
-                    val featuredFirst = liveCatalogGames.firstOrNull() ?: MockGames.catalog.first()
-                    selectedGameForSheet = featuredFirst
                     Toast.makeText(
                         context,
-                        "Unduh game terlebih dahulu untuk Quick-Resume.",
+                        "Belum ada game di pustaka. Tambahkan folder di tab Library.",
                         Toast.LENGTH_SHORT
                     ).show()
                 }
@@ -867,6 +778,51 @@ fun DashboardScreen(
             },
             onDismiss = {
                 detectedDownloadForDialog = null
+            }
+        )
+    }
+
+    // Fase 1 — setelah pengguna memilih folder, tanyakan sistemnya:
+    // banyak format dipakai beberapa konsol sekaligus (.bin, .chd,
+    // .iso), jadi sistem ditentukan foldernya, bukan ditebak dari
+    // ekstensi.
+    val pickedFolder = pendingFolderUri
+    if (pickedFolder != null) {
+        AlertDialog(
+            onDismissRequest = { pendingFolderUri = null },
+            title = { Text(text = "Folder ini berisi game sistem apa?") },
+            text = {
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState())
+                ) {
+                    Text(
+                        text = "Pilih sistem untuk folder ini. Hanya file dengan ekstensi " +
+                            "sistem tersebut yang dipindai (mis. .chd/.cue untuk PS1).",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    GamePlatform.values().forEach { platform ->
+                        Button(
+                            onClick = {
+                                libraryFolderStore.addFolder(pickedFolder, platform)
+                                pendingFolderUri = null
+                                rescanLibrary()
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 3.dp)
+                        ) {
+                            Text(text = platform.displayName)
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { pendingFolderUri = null }) {
+                    Text(text = "Batal")
+                }
             }
         )
     }
@@ -1316,6 +1272,71 @@ private fun PosterInstallBadge(gameState: GameState) {
     }
 }
 
+/**
+ * Baris kelola pustaka lokal di tab Library (Fase 1): jumlah folder
+ * dan game lokal, tombol tambah folder, pindai ulang, dan panduan BIOS.
+ */
+@Composable
+private fun LibraryManagementRow(
+    folderCount: Int,
+    localGameCount: Int,
+    isScanning: Boolean,
+    onAddFolder: () -> Unit,
+    onRescan: () -> Unit,
+    onOpenBiosGuide: () -> Unit
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = if (folderCount == 0) {
+                "Belum ada folder pustaka — tambahkan folder game milikmu (PS1, PS2, PSP, dst.)."
+            } else {
+                "$folderCount folder pustaka • $localGameCount game lokal"
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Button(
+                onClick = onAddFolder,
+                modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp)
+            ) {
+                Text(text = "Tambah Folder", style = MaterialTheme.typography.labelMedium, maxLines = 1)
+            }
+            Button(
+                onClick = onRescan,
+                enabled = !isScanning,
+                modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp)
+            ) {
+                Text(
+                    text = if (isScanning) "Memindai…" else "Pindai Ulang",
+                    style = MaterialTheme.typography.labelMedium,
+                    maxLines = 1
+                )
+            }
+            Button(
+                onClick = onOpenBiosGuide,
+                modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp)
+            ) {
+                Text(text = "Panduan BIOS", style = MaterialTheme.typography.labelMedium, maxLines = 1)
+            }
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = "Arsip .zip/.7z tidak dipindai (kecuali zip game PC) — ekstrak dulu. " +
+                "File game tetap milikmu; NexusDeck hanya membaca.",
+            style = MaterialTheme.typography.bodySmall,
+            color = NexusPalette.TextMuted
+        )
+    }
+}
+
 @Composable
 private fun SectionTabBanner(
     tab: NexusBottomTab,
@@ -1338,7 +1359,7 @@ private fun SectionTabBanner(
                 Text(
                     text = when (tab) {
                         NexusBottomTab.FAVORITES -> "Favorite Games"
-                        NexusBottomTab.LIBRARY -> "Downloads & Local Library"
+                        NexusBottomTab.LIBRARY -> "Local Library"
                         else -> tab.label
                     },
                     style = MaterialTheme.typography.titleMedium.copy(
@@ -1401,7 +1422,7 @@ private fun EmptyTabPlaceholder(
                 text = if (tab == NexusBottomTab.FAVORITES) {
                     "Ketuk ikon hati pada poster game untuk menyimpannya ke daftar favorit."
                 } else {
-                    "Pilih game dari katalog web lalu ketuk 'Download Langsung ke Nexus' agar tersimpan di perangkat."
+                    "Tambahkan folder game milikmu lewat tombol Tambah Folder di atas — NexusDeck akan memindai file game di HP-mu."
                 },
                 style = MaterialTheme.typography.bodyMedium,
                 color = NexusPalette.TextSecondary
@@ -1415,7 +1436,7 @@ private fun EmptyTabPlaceholder(
                     .padding(horizontal = 20.dp, vertical = 11.dp)
             ) {
                 Text(
-                    text = "Jelajahi Katalog Game",
+                    text = if (tab == NexusBottomTab.LIBRARY) "Tambah Folder Game" else "Jelajahi Katalog Game",
                     style = MaterialTheme.typography.labelLarge.copy(
                         fontWeight = FontWeight.Bold
                     ),

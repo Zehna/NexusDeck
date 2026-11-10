@@ -29,18 +29,16 @@ import com.nexusdeck.app.ui.theme.NexusPalette
 enum class CategoryPillFilter(
     val label: String,
     val platform: GamePlatform?,
-    val isFavoritesOnly: Boolean = false,
-    val featuredOnly: Boolean = false
+    val isFavoritesOnly: Boolean = false
 ) {
-    ALL("All", null, false, false),
-    FAVORITES("Favorit ⭐", null, true, false),
-    CATALOG("Catalog", null, false, true),
-    PS1("PlayStation 1", GamePlatform.PS1, false, false),
-    PSP("PSP", GamePlatform.PSP, false, false),
-    NINTENDO("Nintendo", GamePlatform.NINTENDO, false, false),
-    PS2("PlayStation 2", GamePlatform.PS2, false, false),
-    PC("PC Games", GamePlatform.PC, false, false),
-    PS3("PlayStation 3", GamePlatform.PS3, false, false)
+    ALL("All", null, false),
+    FAVORITES("Favorit", null, true),
+    PS1("PlayStation 1", GamePlatform.PS1, false),
+    PSP("PSP", GamePlatform.PSP, false),
+    NINTENDO("Nintendo", GamePlatform.NINTENDO, false),
+    PS2("PlayStation 2", GamePlatform.PS2, false),
+    PC("PC Games", GamePlatform.PC, false),
+    PS3("PlayStation 3", GamePlatform.PS3, false)
 }
 
 @Composable

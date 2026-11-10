@@ -102,7 +102,8 @@ class GameInstallManager(
                         targetEmulator = targetEmulator,
                         fileSizeLabel = obj.optString("fileSizeLabel", "1.2 GB"),
                         downloadUrl = obj.optString("downloadUrl", ""),
-                        isWebResult = obj.optBoolean("isWebResult", true)
+                        isWebResult = obj.optBoolean("isWebResult", true),
+                        sourceRepositoryName = obj.optString("sourceRepositoryName", "Nexus Archive")
                     )
                     if (item.id.isNotBlank()) {
                         result[item.id] = item
@@ -224,6 +225,49 @@ class GameInstallManager(
         }
     }
 
+    /**
+     * Mendaftarkan file game lokal (hasil pindai SAF, Fase 1) ke pustaka:
+     * metadata game disimpan dan statusnya langsung Installed dengan
+     * content URI sebagai romPath — tidak ada unduhan. Hanya menerima
+     * ID game lokal ("local_...") supaya game katalog tidak tertimpa.
+     */
+    fun registerLocalFiles(items: List<Pair<GameItem, String>>) {
+        items.forEach { (game, contentUri) ->
+            if (!game.id.startsWith("local_")) return@forEach
+            rememberGameMetadata(game)
+            persistInstalledPath(game.id, contentUri)
+            updateGameState(game.id, GameState.Installed(romPath = contentUri))
+        }
+    }
+
+    /**
+     * Menghapus satu game lokal dari pustaka (dipakai prune saat pindai
+     * ulang: filenya sudah tidak ada di folder yang berhasil dipindai).
+     * Hanya untuk ID game lokal ("local_...").
+     */
+    fun removeLocalGame(gameId: String) {
+        if (!gameId.startsWith("local_")) return
+        _gameStates.update { current -> current - gameId }
+        _savedLibraryGames.update { current ->
+            val updated = LinkedHashMap(current)
+            updated.remove(gameId)
+            persistWebGamesCatalog(updated.values.toList())
+            updated
+        }
+        val paths = JSONObject(prefs.getString(KEY_INSTALLED_PATHS, "{}") ?: "{}")
+        paths.remove(gameId)
+        prefs.edit().putString(KEY_INSTALLED_PATHS, paths.toString()).apply()
+        if (gameId in _favoriteIds.value) {
+            val updatedFavorites = _favoriteIds.value - gameId
+            _favoriteIds.value = updatedFavorites
+            prefs.edit().putStringSet(KEY_FAVORITE_IDS, updatedFavorites).apply()
+        }
+        if (_lastPlayedGameId.value == gameId) {
+            _lastPlayedGameId.value = null
+            prefs.edit().remove(KEY_LAST_PLAYED).apply()
+        }
+    }
+
     private fun rememberGameMetadata(game: GameItem) {
         _savedLibraryGames.update { current ->
             val updated = LinkedHashMap(current)
@@ -252,6 +296,7 @@ class GameInstallManager(
                 put("fileSizeLabel", item.fileSizeLabel)
                 put("downloadUrl", item.downloadUrl)
                 put("isWebResult", item.isWebResult)
+                put("sourceRepositoryName", item.sourceRepositoryName)
             }
             arr.put(obj)
         }

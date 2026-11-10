@@ -6,7 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.SportsEsports
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -23,13 +23,14 @@ import androidx.compose.ui.unit.sp
 import com.nexusdeck.app.ui.theme.NexusPalette
 
 /**
- * Tampilan status kosong (Empty State) saat game tidak ditemukan pada katalog lokal.
- * Dilengkapi pesan ramah dan tombol cepat untuk berpindah ke Web Explorer.
+ * Tampilan status kosong saat tidak ada game di pustaka lokal.
+ * v1.4.0 — katalog unduhan ROM dihapus: tombolnya mengarah ke tab
+ * Library (tambah folder game milik pengguna), bukan lagi ke Web.
  */
 @Composable
 fun EmptyStateView(
     searchQuery: String,
-    onOpenWebExplorer: () -> Unit,
+    onOpenLibrary: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
@@ -63,7 +64,7 @@ fun EmptyStateView(
             text = if (searchQuery.isNotBlank())
                 "Tidak ada game untuk \"$searchQuery\""
             else
-                "Belum Ada Game di Kategori Ini",
+                "Belum Ada Game di Pustaka",
             style = MaterialTheme.typography.titleMedium.copy(
                 fontWeight = FontWeight.Bold,
                 color = Color.White,
@@ -75,7 +76,8 @@ fun EmptyStateView(
         Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-            text = "Game tidak ditemukan di katalog lokal. Coba buka tab Web Explorer untuk mencari di 150+ situs ROM & ISO game!",
+            text = "Tambahkan folder game milikmu di tab Library — NexusDeck " +
+                "memindai file game yang sudah ada di HP-mu, tanpa unduhan.",
             style = MaterialTheme.typography.bodyMedium.copy(
                 color = NexusPalette.TextSecondary,
                 fontSize = 13.sp,
@@ -89,7 +91,7 @@ fun EmptyStateView(
         Button(
             onClick = {
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                onOpenWebExplorer()
+                onOpenLibrary()
             },
             shape = RoundedCornerShape(14.dp),
             colors = ButtonDefaults.buttonColors(
@@ -98,13 +100,13 @@ fun EmptyStateView(
             )
         ) {
             Icon(
-                imageVector = Icons.Default.Language,
+                imageVector = Icons.Default.FolderOpen,
                 contentDescription = null,
                 modifier = Modifier.size(18.dp)
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = "🌐 Buka Web Explorer",
+                text = "Buka Tab Library",
                 fontWeight = FontWeight.Bold,
                 fontSize = 14.sp
             )
