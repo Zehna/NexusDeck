@@ -1338,12 +1338,13 @@ class NexusDeckComprehensiveStressTest {
     @Test
     fun test54_nexusStorageManager_universalSharedPublicPathsAcrossAllPlatforms() {
         // Folder publik bersama universal untuk seluruh platform
-        assertEquals("/storage/emulated/0/NexusDeck/games/ps1/", NexusStorageManager.getCanonicalPlatformGamesPath(GamePlatform.PS1))
+        // Pemetaan dbname Fase 3a: PS1 -> psx; NINTENDO -> gba sebagai folder kanonikal dari gba/nds/3ds.
+        assertEquals("/storage/emulated/0/NexusDeck/games/psx/", NexusStorageManager.getCanonicalPlatformGamesPath(GamePlatform.PS1))
         assertEquals("/storage/emulated/0/NexusDeck/games/psp/", NexusStorageManager.getCanonicalPlatformGamesPath(GamePlatform.PSP))
         assertEquals("/storage/emulated/0/NexusDeck/games/ps2/", NexusStorageManager.getCanonicalPlatformGamesPath(GamePlatform.PS2))
         assertEquals("/storage/emulated/0/NexusDeck/games/ps3/", NexusStorageManager.getCanonicalPlatformGamesPath(GamePlatform.PS3))
         assertEquals("/storage/emulated/0/NexusDeck/games/pc/", NexusStorageManager.getCanonicalPlatformGamesPath(GamePlatform.PC))
-        assertEquals("/storage/emulated/0/NexusDeck/games/nintendo/", NexusStorageManager.getCanonicalPlatformGamesPath(GamePlatform.NINTENDO))
+        assertEquals("/storage/emulated/0/NexusDeck/games/gba/", NexusStorageManager.getCanonicalPlatformGamesPath(GamePlatform.NINTENDO))
 
         // Direktori BIOS & Firmware bersama
         assertEquals("/storage/emulated/0/NexusDeck/bios/scph1001.bin", NexusStorageManager.getCanonicalBiosPath("scph1001.bin"))
