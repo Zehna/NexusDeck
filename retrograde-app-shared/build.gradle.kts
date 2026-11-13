@@ -16,6 +16,7 @@ android {
 
     kotlinOptions {
         jvmTarget = "17"
+        freeCompilerArgs += "-Xmetadata-version=2.0.0"
     }
 }
 
@@ -71,5 +72,6 @@ android {
     kotlinOptions {
         this as KotlinJvmOptions
         jvmTarget = "17"
+        freeCompilerArgs += "-Xmetadata-version=2.0.0"
     }
 }
