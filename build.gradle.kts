@@ -1,5 +1,3 @@
-import com.android.build.api.dsl.LibraryExtension
-
 plugins {
     id("com.android.application") version "8.7.3" apply false
     id("com.android.library") version "8.7.3" apply false
@@ -13,15 +11,3 @@ plugins {
     id("androidx.baselineprofile") version "1.2.4" apply false
 }
 
-project(":bundled-cores") {
-    pluginManager.withPlugin("com.android.library") {
-        extensions.configure<LibraryExtension> {
-            compileSdk = 35
-            flavorDimensions += listOf("opensource", "cores")
-            productFlavors {
-                create("free") { dimension = "opensource" }
-                create("bundle") { dimension = "cores" }
-            }
-        }
-    }
-}

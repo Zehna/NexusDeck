@@ -29,3 +29,4 @@ include(":retrograde-util", ":retrograde-app-shared",
         ":lemuroid-app-ext-free", ":bundled-cores",
         ":baselineprofile")
 project(":bundled-cores").projectDir = File("lemuroid-cores/bundled-cores")
+project(":bundled-cores").buildFileName = "../../bundled-cores.gradle.kts"
