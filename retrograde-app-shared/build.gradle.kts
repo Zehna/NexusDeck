@@ -8,6 +8,8 @@ plugins {
 }
 
 android {
+    compileSdk = deps.android.compileSdkVersion
+
     kotlinOptions {
         jvmTarget = "17"
     }

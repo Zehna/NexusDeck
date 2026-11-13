@@ -18,6 +18,8 @@ dependencies {
 }
 
 android {
+    compileSdk = deps.android.compileSdkVersion
+
     resourcePrefix("libretrodb_")
     kotlinOptions {
         jvmTarget = "17"
