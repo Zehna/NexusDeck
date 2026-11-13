@@ -115,6 +115,11 @@ dependencies {
 
     // Coil Image Loader for Box Art
     implementation("io.coil-kt:coil-compose:2.7.0")
+    implementation(deps.libs.dagger.core)
+    implementation(deps.libs.dagger.android.core)
+    implementation(deps.libs.dagger.android.support)
+    implementation(deps.libs.coil.coil)
+    implementation(project(":retrograde-app-shared"))
 
     // Tooling & Testing
     debugImplementation("androidx.compose.ui:ui-tooling")
