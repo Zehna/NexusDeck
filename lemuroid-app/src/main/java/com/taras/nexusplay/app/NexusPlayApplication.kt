@@ -18,7 +18,7 @@ import dagger.android.DispatchingAndroidInjector
 import dagger.android.support.DaggerApplication
 import javax.inject.Inject
 
-class NexusPlayApplication : DaggerApplication(), HasWorkerInjector, ImageLoaderFactory {
+open class NexusPlayApplication : DaggerApplication(), HasWorkerInjector, ImageLoaderFactory {
     @Inject
     lateinit var workerInjector: DispatchingAndroidInjector<ListenableWorker>
 
