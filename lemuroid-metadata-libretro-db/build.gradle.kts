@@ -19,6 +19,10 @@ dependencies {
 
 android {
     compileSdk = deps.android.compileSdkVersion
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
 
     resourcePrefix("libretrodb_")
     kotlinOptions {

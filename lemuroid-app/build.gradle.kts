@@ -9,6 +9,10 @@ plugins {
 
 android {
     compileSdk = deps.android.compileSdkVersion
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
 
     defaultConfig {
         // Original application version: versionCode = 253, versionName = "1.17.0".
