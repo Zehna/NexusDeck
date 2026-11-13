@@ -12,6 +12,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import com.nexusdeck.app.core.profiler.HardwareProfiler
+import com.nexusdeck.app.core.storage.NexusStorageManager
 import com.nexusdeck.app.ui.DashboardScreen
 import com.nexusdeck.app.ui.theme.NexusFullRoidDarkColorScheme
 import com.nexusdeck.app.ui.theme.NexusTypography
@@ -20,6 +21,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        NexusStorageManager.ensureStandardFolders(this)
 
         setContent {
             val context = LocalContext.current

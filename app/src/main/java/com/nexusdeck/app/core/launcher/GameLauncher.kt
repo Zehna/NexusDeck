@@ -295,7 +295,7 @@ object GameLauncher {
                 LauncherResult.LaunchedWithNotice(
                     "Lemuroid dibuka. Arahkan folder library Lemuroid (sekali saja, " +
                         "via Storage Access Framework) ke " +
-                        "/storage/emulated/0/NexusDeck/games/nintendo/ agar game " +
+                        "/storage/emulated/0/NexusDeck/games/gba/ agar game " +
                         "Nintendo kamu muncul di sana."
                 )
             } else {

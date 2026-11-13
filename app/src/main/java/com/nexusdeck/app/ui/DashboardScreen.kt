@@ -87,6 +87,7 @@ import com.nexusdeck.app.core.model.GameState
 import com.nexusdeck.app.core.model.HardwareSpec
 import com.nexusdeck.app.core.optimizer.AutoTuningEngine
 import com.nexusdeck.app.core.profiler.HardwareProfiler
+import com.nexusdeck.app.core.storage.NexusStorageManager
 import com.nexusdeck.app.ui.browser.NexusWebBrowser
 import com.nexusdeck.app.ui.components.BottomNavBar
 import com.nexusdeck.app.ui.components.CategoryPillFilter
@@ -134,6 +135,7 @@ fun DashboardScreen(
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+    var rescanLibraryRequest: () -> Unit = {}
 
     // v1.4.0 — katalog unduhan ROM dihapus dari aplikasi (Opsi A):
     // Home menampilkan pustaka lokal milik pengguna (file game yang
@@ -141,7 +143,9 @@ fun DashboardScreen(
     // katalog online + pemeriksa kesehatan tautan tidak lagi dipakai di
     // sini (file-nya masih ada sebagai kode mati; dihapus via Copilot).
     val installManager = remember(context) {
-        GameInstallManager(context, coroutineScope)
+        GameInstallManager(context, coroutineScope, onGameInstalled = {
+            rescanLibraryRequest()
+        })
     }
 
     // Fase 1 — pustaka lokal (SAF): folder dipilih per sistem, dipindai
@@ -160,28 +164,39 @@ fun DashboardScreen(
     }
 
     fun rescanLibrary() {
-        val folders = libraryFolderStore.allFolders()
-        if (folders.isEmpty()) {
-            Toast.makeText(
-                context,
-                "Belum ada folder pustaka. Ketuk Tambah Folder dulu.",
-                Toast.LENGTH_SHORT
-            ).show()
-            return
-        }
         if (isScanningLibrary) return
         isScanningLibrary = true
         coroutineScope.launch(Dispatchers.IO) {
             var foundTotal = 0
             var skippedTotal = 0
             var prunedTotal = 0
-            folders.forEach { (folderUriString, platform) ->
-                val treeUri = Uri.parse(folderUriString)
-                val result = GameLibraryScanner.scanFolder(context, treeUri, platform)
+            val scanTargets = buildList {
+                NexusStorageManager.standardGameFolders().forEach { (folderName, platform) ->
+                    add(
+                        Triple(
+                            "${NexusStorageManager.PUBLIC_BASE_PATH}/games/$folderName",
+                            platform,
+                            true
+                        )
+                    )
+                }
+                libraryFolderStore.allFolders().forEach { (folderUriString, platform) ->
+                    add(Triple(folderUriString, platform, false))
+                }
+            }
+            scanTargets.forEach { (folderKey, platform, isStandardFolder) ->
+                val result = if (isStandardFolder) {
+                    GameLibraryScanner.scanPublicFolder(
+                        java.io.File(folderKey),
+                        platform
+                    )
+                } else {
+                    GameLibraryScanner.scanFolder(context, Uri.parse(folderKey), platform)
+                }
                 val newUris = result.files.map { it.contentUri }.toSet()
                 // Prune: game lokal dari folder ini yang filenya sudah
                 // tidak ada di hasil pindai (folder berhasil dipindai).
-                val staleIds = libraryFolderStore.gameIdsForFolder(folderUriString).filter { id ->
+                val staleIds = libraryFolderStore.gameIdsForFolder(folderKey).filter { id ->
                     val state = installManager.getStateForGame(id)
                     val uri = (state as? GameState.Installed)?.romPath
                     uri == null || uri !in newUris
@@ -196,7 +211,7 @@ fun DashboardScreen(
                 }
                 installManager.registerLocalFiles(items)
                 items.forEach { (game, _) ->
-                    libraryFolderStore.recordGameFolder(game.id, folderUriString)
+                    libraryFolderStore.recordGameFolder(game.id, folderKey)
                 }
                 foundTotal += result.files.size
                 skippedTotal += result.skippedCount
@@ -213,6 +228,7 @@ fun DashboardScreen(
             }
         }
     }
+    rescanLibraryRequest = { rescanLibrary() }
 
     val gameStates by installManager.gameStates.collectAsState()
     val savedLibraryGames by installManager.savedLibraryGames.collectAsState()
@@ -357,9 +373,7 @@ fun DashboardScreen(
     // dalam satu sesi (dan folder sudah ada), supaya grid langsung terisi
     // tanpa menunggu tombol Pindai Ulang.
     LaunchedEffect(selectedBottomTab) {
-        if (selectedBottomTab == NexusBottomTab.LIBRARY && !libraryScannedOnce &&
-            libraryFolderStore.allFolders().isNotEmpty()
-        ) {
+        if (selectedBottomTab == NexusBottomTab.LIBRARY && !libraryScannedOnce) {
             rescanLibrary()
         }
     }
