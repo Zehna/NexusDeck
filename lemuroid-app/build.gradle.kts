@@ -8,6 +8,8 @@ plugins {
 }
 
 android {
+    compileSdk = deps.android.compileSdkVersion
+
     defaultConfig {
         // Original application version: versionCode = 253, versionName = "1.17.0".
     }
