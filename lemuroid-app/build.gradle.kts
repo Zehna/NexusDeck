@@ -9,8 +9,7 @@ plugins {
 
 android {
     defaultConfig {
-        versionCode = 253
-        versionName = "1.17.0" // Always remember to update Cores Tag!
+        // Original application version: versionCode = 253, versionName = "1.17.0".
     }
     flavorDimensions += listOf("opensource", "cores")
 
