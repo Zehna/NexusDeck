@@ -11,3 +11,28 @@ plugins {
     id("androidx.baselineprofile") version "1.2.4" apply false
 }
 
+// Samakan dengan fork (Zehna/Lemuroid-Zehna): paksa semua artefak
+// org.jetbrains.kotlin ke 2.0.21. Tanpa ini, padkit 1.0.0-beta1 (dependensi
+// :lemuroid-touchinput) menarik kotlin-stdlib 2.1.21, dan Room 2.6.1 KAPT
+// gagal membaca metadata 2.1.0 ("Provided Metadata instance has version
+// 2.1.0, while maximum supported version is 2.0.0"). Fork lolos karena blok
+// ini ada di root build-nya. JANGAN tambahkan blok repositories di sini —
+// repositories sudah diatur di settings.gradle.kts (FAIL_ON_PROJECT_REPOS).
+allprojects {
+    configurations.all {
+        resolutionStrategy.eachDependency {
+            when (requested.group) {
+                "com.google.android.gms" -> useVersion(deps.versions.gms)
+                "org.jetbrains.kotlin" -> {
+                    if (requested.name.startsWith("kotlin-stdlib-jre")) {
+                        with(requested) {
+                            useTarget("$group:${name.replace("jre", "jdk")}:$version")
+                        }
+                    }
+                    useVersion(deps.versions.kotlin)
+                }
+            }
+        }
+    }
+}
+
