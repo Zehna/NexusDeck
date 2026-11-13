@@ -30,7 +30,6 @@
         android:allowBackup="true"
         android:isGame="true"
         android:requestLegacyExternalStorage="true"
-        android:roundIcon="@mipmap/nexusplay_launcher_round"
         android:supportsRtl="true">
         <activity
             android:name="com.taras.nexusplay.app.mobile.feature.main.MainActivity"
