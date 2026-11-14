@@ -15,6 +15,8 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -31,7 +33,7 @@ jobs:
       - name: Run Unit Tests
         run: |
           set -o pipefail
-          ./gradlew testDebugUnitTest --stacktrace 2>&1 | tee build_log.txt || {
+          ./gradlew testFreeBundleDebugUnitTest --stacktrace 2>&1 | tee build_log.txt || {
             echo "::error::Gradle command failed"
             grep -E "(e: |error:|FAILED)" build_log.txt | head -n 40 | while IFS= read -r line; do
               echo "::error::$line"
@@ -42,7 +44,7 @@ jobs:
       - name: Build Debug APK with Gradle
         run: |
           set -o pipefail
-          ./gradlew assembleDebug --stacktrace 2>&1 | tee apk_log.txt || {
+          ./gradlew assembleFreeBundleDebug --stacktrace 2>&1 | tee apk_log.txt || {
             echo "::error::Assemble APK failed"
             tail -n 80 apk_log.txt | while IFS= read -r line; do
               echo "::error::$line"
@@ -54,11 +56,11 @@ jobs:
         if: always()
         run: |
           echo "=== APK Directory Listing ==="
-          ls -laR app/build/outputs/ || true
+          ls -laR app/build/outputs/apk/freeBundle/debug/ || true
 
       - name: Upload Debug APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: NexusDeck-app-debug
-          path: app/build/outputs/apk/debug/*.apk
+          path: app/build/outputs/apk/freeBundle/debug/*.apk
           if-no-files-found: error

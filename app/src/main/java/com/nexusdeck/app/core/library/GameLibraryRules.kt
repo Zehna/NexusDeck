@@ -44,7 +44,8 @@ object GameLibraryRules {
             "chd", "cso", "elf", "iso", "pbp", "prx"
         ),
         GamePlatform.NINTENDO to setOf(
-            "nds", "bin", "app", "3ds", "3dsx", "cci", "cxi", "axf", "gba"
+            "app", "bin", "3ds", "3dsx", "axf", "cci", "cxi", "gba", "gb", "gbc",
+            "nds", "n64", "nes", "sfc", "smc", "v64", "z64", "gen", "md", "sms"
         ),
         GamePlatform.PS3 to setOf(
             "iso", "pkg"

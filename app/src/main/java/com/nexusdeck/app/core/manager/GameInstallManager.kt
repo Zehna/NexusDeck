@@ -29,7 +29,8 @@ data class AutoPlayEvent(
 class GameInstallManager(
     context: Context,
     private val coroutineScope: CoroutineScope,
-    private val healthStore: CatalogHealthStore? = null
+    private val healthStore: CatalogHealthStore? = null,
+    private val onGameInstalled: (() -> Unit)? = null
 ) {
     private val appContext = context.applicationContext
     private val prefs: SharedPreferences =
@@ -204,6 +205,7 @@ class GameInstallManager(
                             val finalRomPath = progress.localFilePath
                             persistInstalledPath(game.id, finalRomPath)
                             updateGameState(game.id, GameState.Installed(romPath = finalRomPath))
+                            onGameInstalled?.invoke()
 
                             // 3. Auto-Play Pipeline Trigger: otomatis luncurkan / boot game
                             _autoPlayTrigger.value = AutoPlayEvent(game = game, romPath = finalRomPath)

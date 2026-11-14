@@ -342,7 +342,10 @@ class RealGameDownloader(private val context: Context) {
         val request = try {
             DownloadManager.Request(Uri.parse(linkCheck.finalUrl))
                 .setTitle("NexusDeck: ${game.title}")
-                .setDescription("Mengunduh ${game.title} (${game.fileSizeLabel}) ke /games/${game.platform.name.lowercase()}/")
+            .setDescription(
+                "Mengunduh ${game.title} (${game.fileSizeLabel}) ke " +
+                    NexusStorageManager.getCanonicalPlatformGamesPath(game.platform)
+            )
                 .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
                 .setAllowedOverMetered(true)
                 .setAllowedOverRoaming(true)

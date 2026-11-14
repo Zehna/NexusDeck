@@ -69,6 +69,7 @@ import com.nexusdeck.app.core.model.EngineConfig
 import com.nexusdeck.app.core.model.GameItem
 import com.nexusdeck.app.core.model.GamePlatform
 import com.nexusdeck.app.core.model.GameState
+import com.nexusdeck.app.core.storage.NexusStorageManager
 import com.nexusdeck.app.core.model.HardwareSpec
 import com.nexusdeck.app.core.optimizer.AutoTuningEngine
 import com.nexusdeck.app.core.optimizer.CompressionAdvice
@@ -695,7 +696,7 @@ private fun GameActionSection(
     onPlayInAppClick: (romPath: String) -> Unit,
     onLaunchExternalClick: (romPath: String) -> Unit
 ) {
-    val platformFolder = "/games/${game.platform.name.lowercase()}/"
+    val platformFolder = NexusStorageManager.getCanonicalPlatformGamesPath(game.platform)
 
     when (gameState) {
         is GameState.NotInstalled -> {

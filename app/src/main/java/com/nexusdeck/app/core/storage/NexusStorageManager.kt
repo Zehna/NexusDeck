@@ -309,6 +309,44 @@ object NexusStorageManager {
 
     const val PUBLIC_BASE_PATH = "/storage/emulated/0/NexusDeck"
 
+    private val standardGameFolders = listOf(
+        "psx" to GamePlatform.PS1,
+        "psp" to GamePlatform.PSP,
+        "gba" to GamePlatform.NINTENDO,
+        "nds" to GamePlatform.NINTENDO,
+        "3ds" to GamePlatform.NINTENDO,
+        "nes" to GamePlatform.NINTENDO,
+        "snes" to GamePlatform.NINTENDO,
+        "gb" to GamePlatform.NINTENDO,
+        "gbc" to GamePlatform.NINTENDO,
+        "n64" to GamePlatform.NINTENDO,
+        "md" to GamePlatform.NINTENDO,
+        "sms" to GamePlatform.NINTENDO,
+        "ps2" to GamePlatform.PS2,
+        "ps3" to GamePlatform.PS3,
+        "pc" to GamePlatform.PC
+    )
+
+    fun standardGameFolders(): List<Pair<String, GamePlatform>> = standardGameFolders
+
+    fun ensureStandardFolders(context: Context? = null) {
+        val root = getPublicNexusDeckDir(context)
+        standardGameFolders.forEach { (folder, _) ->
+            File(root, "games/$folder").mkdirs()
+        }
+        File(root, "bios").mkdirs()
+        File(root, "firmware").mkdirs()
+    }
+
+    private fun folderNameForPlatform(platform: GamePlatform): String = when (platform) {
+        GamePlatform.PS1 -> "psx"
+        GamePlatform.PSP -> "psp"
+        GamePlatform.NINTENDO -> "gba"
+        GamePlatform.PS2 -> "ps2"
+        GamePlatform.PS3 -> "ps3"
+        GamePlatform.PC -> "pc"
+    }
+
     /**
      * Mengembalikan direktori root bersama NexusDeck (/storage/emulated/0/NexusDeck/).
      * Dapat diakses secara langsung oleh seluruh engine emulator target (DuckStation, PPSSPP,
@@ -344,16 +382,16 @@ object NexusStorageManager {
 
     /**
      * Mengembalikan direktori penyimpanan publik bersama per platform:
-     * - PS1: /storage/emulated/0/NexusDeck/games/ps1/
+     * - PS1: /storage/emulated/0/NexusDeck/games/psx/
      * - PSP: /storage/emulated/0/NexusDeck/games/psp/
      * - PS2: /storage/emulated/0/NexusDeck/games/ps2/
      * - PS3: /storage/emulated/0/NexusDeck/games/ps3/
      * - PC: /storage/emulated/0/NexusDeck/games/pc/
-     * - Nintendo: /storage/emulated/0/NexusDeck/games/nintendo/
+     * - Nintendo: /storage/emulated/0/NexusDeck/games/gba/
      */
     fun getPlatformGamesDir(context: Context? = null, platform: GamePlatform): File {
         val root = getPublicNexusDeckDir(context)
-        val dir = File(root, "games/${platform.name.lowercase(Locale.US)}")
+        val dir = File(root, "games/${folderNameForPlatform(platform)}")
         if (!dir.exists()) {
             dir.mkdirs()
         }
@@ -390,7 +428,7 @@ object NexusStorageManager {
      * String path kanonikal untuk verifikasi & integrasi antar modul:
      */
     fun getCanonicalPlatformGamesPath(platform: GamePlatform): String {
-        return "$PUBLIC_BASE_PATH/games/${platform.name.lowercase(Locale.US)}/"
+        return "$PUBLIC_BASE_PATH/games/${folderNameForPlatform(platform)}/"
     }
 
     fun getCanonicalBiosPath(fileName: String): String {

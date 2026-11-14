@@ -24,7 +24,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -50,11 +49,11 @@ fun BiosGuideScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val ps1Ready = remember { BiosManager.isBiosOrFirmwareReady(context, GamePlatform.PS1) }
-    val ps2Ready = remember { BiosManager.isBiosOrFirmwareReady(context, GamePlatform.PS2) }
-    val ps3Ready = remember { BiosManager.isBiosOrFirmwareReady(context, GamePlatform.PS3) }
-    val biosDir = remember { BiosManager.getBiosDir(context).absolutePath }
-    val firmwareDir = remember { BiosManager.getFirmwareDir(context).absolutePath }
+    val ps1Ready = BiosManager.isBiosOrFirmwareReady(context, GamePlatform.PS1)
+    val ps2Ready = BiosManager.isBiosOrFirmwareReady(context, GamePlatform.PS2)
+    val ps3Ready = BiosManager.isBiosOrFirmwareReady(context, GamePlatform.PS3)
+    val biosDir = BiosManager.getBiosDir(context).absolutePath
+    val firmwareDir = BiosManager.getFirmwareDir(context).absolutePath
 
     Column(
         modifier = modifier
@@ -97,10 +96,30 @@ fun BiosGuideScreen(
                             "menyediakan, mengunduh, atau menautkan unduhan BIOS. Cara yang " +
                             "sah: dump BIOS dari konsol PlayStation milikmu sendiri " +
                             "(untuk PS2: FreeMcBoot/FreeDVDBoot + biosdrain; ikuti panduan " +
-                            "dumping resmi PCSX2). Tanpa BIOS, game PS1/PS2 tidak bisa boot " +
-                            "dan emulator akan meminta BIOS-nya sendiri.",
+                            "dumping resmi PCSX2). DuckStation akan meminta BIOS bila " +
+                            "digunakan sebagai emulator luar; PS2 tetap meminta BIOS-nya " +
+                            "sendiri.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(14.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
+            item {
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = NexusPalette.SurfaceCard,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "Di aplikasi gabungan, game PS1 tidak butuh BIOS " +
+                            "(PCSX-ReARMed memakai HLE BIOS bawaan). Pemeriksaan " +
+                            "scph1001.bin di bawah ini hanya berlaku bila kamu memainkan " +
+                            "PS1 lewat DuckStation (aplikasi luar).",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.padding(14.dp)
                     )
                 }

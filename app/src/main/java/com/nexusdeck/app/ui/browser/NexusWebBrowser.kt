@@ -53,6 +53,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -69,6 +70,12 @@ import com.nexusdeck.app.core.downloader.SniffedDownload
 import com.nexusdeck.app.core.downloader.WebAdBlocker
 import com.nexusdeck.app.core.downloader.WebDownloadSniffer
 import com.nexusdeck.app.ui.theme.NexusPalette
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
 import java.net.URLEncoder
 
 data class RomBookmark(
@@ -104,6 +111,20 @@ val DEFAULT_ROM_BOOKMARKS = listOf(
     )
 )
 
+private enum class GameSearchSystem(val label: String, val vimmCode: String?) {
+    PS1("PS1", "PS1"),
+    PSP("PSP", "PSP"),
+    GBA("GBA", "GBA"),
+    NDS("NDS", null),
+    THREE_DS("3DS", null)
+}
+
+private data class GameSearchResult(
+    val title: String,
+    val url: String,
+    val detail: String
+)
+
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 fun NexusWebBrowser(
@@ -112,6 +133,7 @@ fun NexusWebBrowser(
     initialUrl: String = "https://vimm.net/vault/PS1"
 ) {
     val focusManager = LocalFocusManager.current
+    val searchScope = rememberCoroutineScope()
     var webViewRef by remember { mutableStateOf<WebView?>(null) }
 
     var currentUrl by remember { mutableStateOf(initialUrl) }
@@ -120,9 +142,58 @@ fun NexusWebBrowser(
     var pageProgress by remember { mutableIntStateOf(0) }
     var isLoading by remember { mutableStateOf(false) }
     var blockedAdCount by remember { mutableIntStateOf(0) }
+    var gameQuery by remember { mutableStateOf("") }
+    var selectedGameSystem by remember { mutableStateOf(GameSearchSystem.PS1) }
+    var gameSearchResults by remember { mutableStateOf<List<GameSearchResult>>(emptyList()) }
+    var isSearchingGames by remember { mutableStateOf(false) }
+    val searchCache = remember { LinkedHashMap<String, List<GameSearchResult>>() }
 
     var canGoBack by remember { mutableStateOf(false) }
     var canGoForward by remember { mutableStateOf(false) }
+
+    fun searchGames(query: String) {
+        val trimmed = query.trim()
+        if (trimmed.isBlank() || isSearchingGames) return
+        gameQuery = trimmed
+        val encodedQuery = URLEncoder.encode(trimmed, "UTF-8")
+        val system = selectedGameSystem
+        val cacheKey = "${system.name}:$trimmed"
+        val vimmUrl = system.vimmCode?.let { code ->
+            "https://vimm.net/vault/?p=list&system=$code&q=$encodedQuery"
+        } ?: "https://vimm.net/vault/?p=search"
+        val immediateResults = listOf(
+            GameSearchResult("Vimm's Lair", vimmUrl, "Hasil pencarian ${system.label}"),
+            GameSearchResult("RomsFun", "https://romsfun.com/?s=$encodedQuery", "Hasil web"),
+            GameSearchResult(
+                "NoPayStation — tidak ada pencarian",
+                "https://nopaystation.com/browse",
+                "Buka halaman browse"
+            )
+        )
+        val cachedResults = searchCache[cacheKey]
+        if (cachedResults != null) {
+            gameSearchResults = cachedResults
+            return
+        }
+
+        gameSearchResults = immediateResults
+        isSearchingGames = true
+        searchScope.launch {
+            val archiveResults = withContext(Dispatchers.IO) {
+                fetchArchiveResults(trimmed)
+            }
+            val combinedResults = buildList {
+                addAll(immediateResults)
+                addAll(archiveResults)
+            }
+            if (searchCache.size >= 10) {
+                searchCache.remove(searchCache.keys.first())
+            }
+            searchCache[cacheKey] = combinedResults
+            gameSearchResults = combinedResults
+            isSearchingGames = false
+        }
+    }
 
     fun navigateTo(destination: String) {
         val trimmed = destination.trim()
@@ -130,8 +201,12 @@ fun NexusWebBrowser(
             trimmed.startsWith("http://", ignoreCase = true) ||
             trimmed.startsWith("https://", ignoreCase = true) -> trimmed
             trimmed.contains(".") && !trimmed.contains(" ") -> "https://$trimmed"
-            else -> "https://duckduckgo.com/?q=${URLEncoder.encode(trimmed, "UTF-8")}"
+            else -> {
+                searchGames(trimmed)
+                return
+            }
         }
+
         inputUrlText = finalUrl
         webViewRef?.loadUrl(finalUrl)
         focusManager.clearFocus()
@@ -188,6 +263,129 @@ fun NexusWebBrowser(
         }
 
         Spacer(modifier = Modifier.height(6.dp))
+
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            color = NexusPalette.SurfaceCard,
+            border = BorderStroke(1.dp, NexusPalette.CardBorder)
+        ) {
+            Column(modifier = Modifier.padding(8.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = gameQuery,
+                        onValueChange = { gameQuery = it },
+                        modifier = Modifier.weight(1f).height(48.dp),
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                        placeholder = { Text("Cari game di situs terverifikasi") },
+                        textStyle = MaterialTheme.typography.bodySmall.copy(color = Color.White),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = Color(0xFF13121A),
+                            unfocusedContainerColor = Color(0xFF13121A),
+                            focusedBorderColor = NexusPalette.PrimaryViolet,
+                            unfocusedBorderColor = NexusPalette.CardBorder,
+                            cursorColor = NexusPalette.SecondaryPurple
+                        ),
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = "Cari game",
+                                tint = NexusPalette.SecondaryPurple
+                            )
+                        },
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Text,
+                            imeAction = ImeAction.Search
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onSearch = { searchGames(gameQuery) }
+                        )
+                    )
+                    IconButton(onClick = { searchGames(gameQuery) }) {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = "Cari",
+                            tint = Color.White
+                        )
+                    }
+                }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
+                        .padding(top = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    GameSearchSystem.values().forEach { system ->
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (selectedGameSystem == system) {
+                                NexusPalette.PrimaryViolet
+                            } else {
+                                NexusPalette.DeepDarkBlack
+                            },
+                            border = BorderStroke(1.dp, NexusPalette.CardBorder),
+                            modifier = Modifier.clickable { selectedGameSystem = system }
+                        ) {
+                            Text(
+                                text = system.label,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.White,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                            )
+                        }
+                    }
+                }
+
+                if (isSearchingGames) {
+                    LinearProgressIndicator(
+                        modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+                        color = NexusPalette.SecondaryPurple
+                    )
+                }
+                if (gameSearchResults.isNotEmpty()) {
+                    Column(
+                        modifier = Modifier.padding(top = 6.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        gameSearchResults.forEach { result ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable { navigateTo(result.url) }
+                                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = result.title,
+                                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                                        color = Color.White
+                                    )
+                                    Text(
+                                        text = result.detail,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = NexusPalette.TextSecondary
+                                    )
+                                }
+                                Icon(
+                                    imageVector = Icons.Default.ArrowForward,
+                                    contentDescription = "Buka hasil",
+                                    tint = NexusPalette.SecondaryPurple,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
         // 2. Browser Navigation & URL Input Bar
         Surface(
@@ -341,6 +539,7 @@ fun NexusWebBrowser(
                             )
                         }
                     }
+
                 }
             }
         }
@@ -386,6 +585,7 @@ fun NexusWebBrowser(
                             setSupportZoom(true)
                             builtInZoomControls = true
                             displayZoomControls = false
+                            cacheMode = WebSettings.LOAD_DEFAULT
 
                             // Mencegah pop-up tab iklan otomatis
                             setSupportMultipleWindows(false)
@@ -497,7 +697,6 @@ fun NexusWebBrowser(
                             }
                         }
 
-                        loadUrl(initialUrl)
                     }
                 },
                 update = { webView ->
@@ -505,5 +704,42 @@ fun NexusWebBrowser(
                 }
             )
         }
+    }
+}
+
+private fun fetchArchiveResults(query: String): List<GameSearchResult> {
+    val encodedQuery = URLEncoder.encode(query, "UTF-8")
+    val apiUrl = "https://archive.org/advancedsearch.php?q=title%3A($encodedQuery)" +
+        "&fl%5B%5D=identifier&fl%5B%5D=title&rows=10&output=json"
+    return try {
+        val connection = (URL(apiUrl).openConnection() as HttpURLConnection).apply {
+            connectTimeout = 5_000
+            readTimeout = 8_000
+            requestMethod = "GET"
+            setRequestProperty("Accept", "application/json")
+        }
+        connection.inputStream.bufferedReader().use { reader ->
+            val docs = JSONObject(reader.readText())
+                .optJSONObject("response")
+                ?.optJSONArray("docs")
+                ?: return emptyList()
+            buildList {
+                for (index in 0 until docs.length()) {
+                    val item = docs.optJSONObject(index) ?: continue
+                    val identifier = item.optString("identifier")
+                    if (identifier.isBlank()) continue
+                    val title = item.optString("title", identifier)
+                    add(
+                        GameSearchResult(
+                            title = "Archive.org — $title",
+                            url = "https://archive.org/details/$identifier",
+                            detail = "Halaman detail hasil Archive.org"
+                        )
+                    )
+                }
+            }
+        }
+    } catch (_: Exception) {
+        emptyList()
     }
 }

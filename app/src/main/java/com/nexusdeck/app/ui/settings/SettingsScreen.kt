@@ -73,6 +73,7 @@ import com.nexusdeck.app.core.model.HardwareSpec
 import com.nexusdeck.app.core.storage.NexusStorageManager
 import com.nexusdeck.app.core.storage.StorageSpaceInfo
 import com.nexusdeck.app.ui.theme.NexusPalette
+import com.taras.nexusplay.app.mobile.feature.main.MainActivity
 
 /**
  * Halaman Pengaturan Terpadu NexusDeck (Commercial-Grade OLED Console Style)
@@ -360,6 +361,39 @@ fun SettingsScreen(
                                 color = NexusPalette.TextSecondary
                             )
                         }
+                    }
+                }
+            }
+        }
+
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(18.dp),
+            color = NexusPalette.SurfaceCard,
+            border = BorderStroke(1.dp, NexusPalette.CardBorder)
+        ) {
+            Column(modifier = Modifier.padding(18.dp)) {
+                Button(
+                    onClick = {
+                        context.startActivity(Intent(context, MainActivity::class.java))
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = NexusPalette.PrimaryViolet
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = "Buka Pustaka Game (NexusPlay)",
+                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                            color = Color.White
+                        )
+                        Text(
+                            text = "Titik masuk sementara Fase 2 — pustaka dan pemutar game masih layar NexusPlay",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White.copy(alpha = 0.8f)
+                        )
                     }
                 }
             }

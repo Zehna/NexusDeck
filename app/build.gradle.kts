@@ -2,6 +2,7 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
+    id("androidx.baselineprofile")
 }
 
 android {
@@ -14,11 +15,20 @@ android {
         targetSdk = 35
         versionCode = 14
         versionName = "1.4.0"
+        ndk {
+            abiFilters += "arm64-v8a"
+        }
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
             useSupportLibrary = true
         }
+    }
+
+    flavorDimensions += listOf("opensource", "cores")
+    productFlavors {
+        create("free") { dimension = "opensource" }
+        create("bundle") { dimension = "cores" }
     }
 
     // Stabilkan tanda tangan APK: tanpa ini, setiap run CI membuat debug
@@ -70,6 +80,9 @@ android {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
+        jniLibs {
+            useLegacyPackaging = true
+        }
     }
 }
 
@@ -102,6 +115,11 @@ dependencies {
 
     // Coil Image Loader for Box Art
     implementation("io.coil-kt:coil-compose:2.7.0")
+    implementation(deps.libs.dagger.core)
+    implementation(deps.libs.dagger.android.core)
+    implementation(deps.libs.dagger.android.support)
+    implementation(deps.libs.coil.coil)
+    implementation(project(":retrograde-app-shared"))
 
     // Tooling & Testing
     debugImplementation("androidx.compose.ui:ui-tooling")
@@ -112,4 +130,7 @@ dependencies {
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    implementation(project(":lemuroid-app"))
+    "baselineProfile"(project(":baselineprofile"))
+    implementation(deps.libs.androidx.profileInstaller)
 }

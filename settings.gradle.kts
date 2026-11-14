@@ -17,8 +17,16 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        maven { url = uri("https://jitpack.io") }
     }
 }
 
 rootProject.name = "NexusDeck"
 include(":app")
+include(":retrograde-util", ":retrograde-app-shared",
+        ":lemuroid-touchinput", ":lemuroid-metadata-libretro-db",
+        ":lemuroid-app",
+        ":lemuroid-app-ext-free", ":bundled-cores",
+        ":baselineprofile")
+project(":bundled-cores").projectDir = File("lemuroid-cores/bundled-cores")
+project(":bundled-cores").buildFileName = "../../bundled-cores.gradle.kts"

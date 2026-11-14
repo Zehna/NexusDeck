@@ -1,8 +1,8 @@
 package com.nexusdeck.app.ui
 
+import android.net.Uri
 import android.view.KeyEvent
 import android.widget.Toast
-import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
@@ -87,6 +87,7 @@ import com.nexusdeck.app.core.model.GameState
 import com.nexusdeck.app.core.model.HardwareSpec
 import com.nexusdeck.app.core.optimizer.AutoTuningEngine
 import com.nexusdeck.app.core.profiler.HardwareProfiler
+import com.nexusdeck.app.core.storage.NexusStorageManager
 import com.nexusdeck.app.ui.browser.NexusWebBrowser
 import com.nexusdeck.app.ui.components.BottomNavBar
 import com.nexusdeck.app.ui.components.CategoryPillFilter
@@ -111,11 +112,14 @@ import com.nexusdeck.app.ui.components.HeroSpotlightCarousel
 import com.nexusdeck.app.ui.settings.SettingsScreen
 import com.nexusdeck.app.ui.theme.NexusPalette
 import com.nexusdeck.app.core.engine.EngineManager
+import com.nexusdeck.app.core.engine.EmulatorJsEngine
 import com.nexusdeck.app.core.library.GameLibraryRules
 import com.nexusdeck.app.core.library.GameLibraryScanner
 import com.nexusdeck.app.core.library.LibraryFolderStore
+import com.nexusdeck.app.core.library.LemuroidLibraryBridge
 import com.nexusdeck.app.core.model.GamePlatform
 import com.nexusdeck.app.ui.bios.BiosGuideScreen
+import com.taras.nexusplay.app.shared.settings.StorageFrameworkPickerLauncher
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
@@ -134,6 +138,7 @@ fun DashboardScreen(
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+    var rescanLibraryRequest: () -> Unit = {}
 
     // v1.4.0 — katalog unduhan ROM dihapus dari aplikasi (Opsi A):
     // Home menampilkan pustaka lokal milik pengguna (file game yang
@@ -141,7 +146,9 @@ fun DashboardScreen(
     // katalog online + pemeriksa kesehatan tautan tidak lagi dipakai di
     // sini (file-nya masih ada sebagai kode mati; dihapus via Copilot).
     val installManager = remember(context) {
-        GameInstallManager(context, coroutineScope)
+        GameInstallManager(context, coroutineScope, onGameInstalled = {
+            rescanLibraryRequest()
+        })
     }
 
     // Fase 1 — pustaka lokal (SAF): folder dipilih per sistem, dipindai
@@ -160,28 +167,39 @@ fun DashboardScreen(
     }
 
     fun rescanLibrary() {
-        val folders = libraryFolderStore.allFolders()
-        if (folders.isEmpty()) {
-            Toast.makeText(
-                context,
-                "Belum ada folder pustaka. Ketuk Tambah Folder dulu.",
-                Toast.LENGTH_SHORT
-            ).show()
-            return
-        }
         if (isScanningLibrary) return
         isScanningLibrary = true
         coroutineScope.launch(Dispatchers.IO) {
             var foundTotal = 0
             var skippedTotal = 0
             var prunedTotal = 0
-            folders.forEach { (folderUriString, platform) ->
-                val treeUri = Uri.parse(folderUriString)
-                val result = GameLibraryScanner.scanFolder(context, treeUri, platform)
+            val scanTargets = buildList {
+                NexusStorageManager.standardGameFolders().forEach { (folderName, platform) ->
+                    add(
+                        Triple(
+                            "${NexusStorageManager.PUBLIC_BASE_PATH}/games/$folderName",
+                            platform,
+                            true
+                        )
+                    )
+                }
+                libraryFolderStore.allFolders().forEach { (folderUriString, platform) ->
+                    add(Triple(folderUriString, platform, false))
+                }
+            }
+            scanTargets.forEach { (folderKey, platform, isStandardFolder) ->
+                val result = if (isStandardFolder) {
+                    GameLibraryScanner.scanPublicFolder(
+                        java.io.File(folderKey),
+                        platform
+                    )
+                } else {
+                    GameLibraryScanner.scanFolder(context, Uri.parse(folderKey), platform)
+                }
                 val newUris = result.files.map { it.contentUri }.toSet()
                 // Prune: game lokal dari folder ini yang filenya sudah
                 // tidak ada di hasil pindai (folder berhasil dipindai).
-                val staleIds = libraryFolderStore.gameIdsForFolder(folderUriString).filter { id ->
+                val staleIds = libraryFolderStore.gameIdsForFolder(folderKey).filter { id ->
                     val state = installManager.getStateForGame(id)
                     val uri = (state as? GameState.Installed)?.romPath
                     uri == null || uri !in newUris
@@ -196,7 +214,7 @@ fun DashboardScreen(
                 }
                 installManager.registerLocalFiles(items)
                 items.forEach { (game, _) ->
-                    libraryFolderStore.recordGameFolder(game.id, folderUriString)
+                    libraryFolderStore.recordGameFolder(game.id, folderKey)
                 }
                 foundTotal += result.files.size
                 skippedTotal += result.skippedCount
@@ -213,6 +231,7 @@ fun DashboardScreen(
             }
         }
     }
+    rescanLibraryRequest = { rescanLibrary() }
 
     val gameStates by installManager.gameStates.collectAsState()
     val savedLibraryGames by installManager.savedLibraryGames.collectAsState()
@@ -230,6 +249,62 @@ fun DashboardScreen(
     }
     var detectedDownloadForDialog by remember { mutableStateOf<SniffedDownload?>(null) }
     var pendingAutoPlayGame by remember { mutableStateOf<GameItem?>(null) }
+
+    fun launchInstalledGame(
+        game: GameItem,
+        romPath: String,
+        engineConfig: EngineConfig,
+        autoTuneActive: Boolean
+    ) {
+        installManager.markLastPlayed(game)
+        if (EmulatorJsEngine.isSupportedInAppRom(romPath)) {
+            selectedGameForSheet = null
+            activeGameSession = ActiveGameSession(
+                game = game,
+                romPath = romPath,
+                engineConfig = engineConfig,
+                autoTuneActive = autoTuneActive
+            )
+            return
+        }
+
+        if (game.platform !in listOf(GamePlatform.PS2, GamePlatform.PC, GamePlatform.PS3)) {
+            if (!LemuroidLibraryBridge.ensureFolderRegistered(context, libraryFolderStore)) {
+                Toast.makeText(
+                    context,
+                    "Pilih folder game terlebih dahulu agar core gabungan dapat mengindeksnya.",
+                    Toast.LENGTH_LONG
+                ).show()
+                StorageFrameworkPickerLauncher.pickFolder(context)
+                return
+            }
+            if (LemuroidLibraryBridge.launchGame(context, romPath)) {
+                selectedGameForSheet = null
+            } else {
+                Toast.makeText(context, "Tidak dapat membuka core gabungan.", Toast.LENGTH_SHORT).show()
+            }
+            return
+        }
+
+        val result = GameLauncher.launchGame(
+            context = context,
+            game = game,
+            romPath = romPath,
+            engineConfig = engineConfig,
+            autoTuneEnabled = autoTuneActive
+        )
+        when (result) {
+            is LauncherResult.Launched -> selectedGameForSheet = null
+            is LauncherResult.LaunchedWithNotice -> {
+                selectedGameForSheet = null
+                Toast.makeText(context, result.message, Toast.LENGTH_LONG).show()
+            }
+            is LauncherResult.EmulatorNotFound -> missingEmulatorResult = result
+            is LauncherResult.LaunchError -> {
+                Toast.makeText(context, result.message, Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
     // Auto-Play Pipeline: Ketika download & ekstraksi game mencapai 100%, sistem langsung boot game secara otomatis
     val autoPlayEvent by installManager.autoPlayTrigger.collectAsState()
@@ -357,9 +432,7 @@ fun DashboardScreen(
     // dalam satu sesi (dan folder sudah ada), supaya grid langsung terisi
     // tanpa menunggu tombol Pindai Ulang.
     LaunchedEffect(selectedBottomTab) {
-        if (selectedBottomTab == NexusBottomTab.LIBRARY && !libraryScannedOnce &&
-            libraryFolderStore.allFolders().isNotEmpty()
-        ) {
+        if (selectedBottomTab == NexusBottomTab.LIBRARY && !libraryScannedOnce) {
             rescanLibrary()
         }
     }
@@ -638,8 +711,7 @@ fun DashboardScreen(
                         ).show()
                     } else {
                         val optimal = AutoTuningEngine.generateOptimalConfig(hardwareSpec, resumeCandidate)
-                        installManager.markLastPlayed(resumeCandidate)
-                        activeGameSession = ActiveGameSession(
+                        launchInstalledGame(
                             game = resumeCandidate,
                             romPath = romPath,
                             engineConfig = optimal,
@@ -685,9 +757,7 @@ fun DashboardScreen(
                 ).show()
             },
             onPlayInAppClick = { romPath, engineConfig, autoTuneActive ->
-                installManager.markLastPlayed(activeGame)
-                selectedGameForSheet = null
-                activeGameSession = ActiveGameSession(
+                launchInstalledGame(
                     game = activeGame,
                     romPath = romPath,
                     engineConfig = engineConfig,
