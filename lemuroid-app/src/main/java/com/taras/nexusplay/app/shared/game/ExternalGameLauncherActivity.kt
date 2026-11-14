@@ -20,6 +20,7 @@ import com.taras.nexusplay.common.coroutines.safeLaunch
 import com.taras.nexusplay.common.longAnimationDuration
 import com.taras.nexusplay.lib.core.CoresSelection
 import com.taras.nexusplay.lib.library.db.RetrogradeDatabase
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.delay
@@ -29,6 +30,7 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 /**
@@ -102,7 +104,9 @@ class ExternalGameLauncherActivity : ImmersiveActivity() {
     private suspend fun loadGameByFileUri(fileUri: String) {
         waitPendingOperations()
 
-        val game = retrogradeDatabase.gameDao().selectByFileUri(fileUri)
+        val game = withContext(Dispatchers.IO) {
+            retrogradeDatabase.gameDao().selectByFileUri(fileUri)
+        }
         if (game == null) {
             Toast.makeText(this, "Game tidak ditemukan di pustaka Lemuroid.", Toast.LENGTH_LONG).show()
             finish()
