@@ -146,36 +146,51 @@ fun NexusWebBrowser(
     var selectedGameSystem by remember { mutableStateOf(GameSearchSystem.PS1) }
     var gameSearchResults by remember { mutableStateOf<List<GameSearchResult>>(emptyList()) }
     var isSearchingGames by remember { mutableStateOf(false) }
+    val searchCache = remember { LinkedHashMap<String, List<GameSearchResult>>() }
 
     var canGoBack by remember { mutableStateOf(false) }
     var canGoForward by remember { mutableStateOf(false) }
 
     fun searchGames(query: String) {
         val trimmed = query.trim()
-        if (trimmed.isBlank()) return
+        if (trimmed.isBlank() || isSearchingGames) return
         gameQuery = trimmed
         val encodedQuery = URLEncoder.encode(trimmed, "UTF-8")
         val system = selectedGameSystem
+        val cacheKey = "${system.name}:$trimmed"
+        val vimmUrl = system.vimmCode?.let { code ->
+            "https://vimm.net/vault/?p=list&system=$code&q=$encodedQuery"
+        } ?: "https://vimm.net/vault/?p=search"
+        val immediateResults = listOf(
+            GameSearchResult("Vimm's Lair", vimmUrl, "Hasil pencarian ${system.label}"),
+            GameSearchResult("RomsFun", "https://romsfun.com/?s=$encodedQuery", "Hasil web"),
+            GameSearchResult(
+                "NoPayStation — tidak ada pencarian",
+                "https://nopaystation.com/browse",
+                "Buka halaman browse"
+            )
+        )
+        val cachedResults = searchCache[cacheKey]
+        if (cachedResults != null) {
+            gameSearchResults = cachedResults
+            return
+        }
+
+        gameSearchResults = immediateResults
         isSearchingGames = true
         searchScope.launch {
             val archiveResults = withContext(Dispatchers.IO) {
                 fetchArchiveResults(trimmed)
             }
-            val vimmUrl = system.vimmCode?.let { code ->
-                "https://vimm.net/vault/?p=list&system=$code&q=$encodedQuery"
-            } ?: "https://vimm.net/vault/?p=search"
-            gameSearchResults = buildList {
-                add(GameSearchResult("Vimm's Lair", vimmUrl, "Hasil pencarian ${system.label}"))
-                add(GameSearchResult("RomsFun", "https://romsfun.com/?s=$encodedQuery", "Hasil web"))
+            val combinedResults = buildList {
+                addAll(immediateResults)
                 addAll(archiveResults)
-                add(
-                    GameSearchResult(
-                        "NoPayStation — tidak ada pencarian",
-                        "https://nopaystation.com/browse",
-                        "Buka halaman browse"
-                    )
-                )
             }
+            if (searchCache.size >= 10) {
+                searchCache.remove(searchCache.keys.first())
+            }
+            searchCache[cacheKey] = combinedResults
+            gameSearchResults = combinedResults
             isSearchingGames = false
         }
     }
@@ -332,7 +347,8 @@ fun NexusWebBrowser(
                         modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
                         color = NexusPalette.SecondaryPurple
                     )
-                } else if (gameSearchResults.isNotEmpty()) {
+                }
+                if (gameSearchResults.isNotEmpty()) {
                     Column(
                         modifier = Modifier.padding(top = 6.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -569,6 +585,7 @@ fun NexusWebBrowser(
                             setSupportZoom(true)
                             builtInZoomControls = true
                             displayZoomControls = false
+                            cacheMode = WebSettings.LOAD_DEFAULT
 
                             // Mencegah pop-up tab iklan otomatis
                             setSupportMultipleWindows(false)
@@ -680,7 +697,6 @@ fun NexusWebBrowser(
                             }
                         }
 
-                        loadUrl(initialUrl)
                     }
                 },
                 update = { webView ->
@@ -697,8 +713,8 @@ private fun fetchArchiveResults(query: String): List<GameSearchResult> {
         "&fl%5B%5D=identifier&fl%5B%5D=title&rows=10&output=json"
     return try {
         val connection = (URL(apiUrl).openConnection() as HttpURLConnection).apply {
-            connectTimeout = 10_000
-            readTimeout = 15_000
+            connectTimeout = 5_000
+            readTimeout = 8_000
             requestMethod = "GET"
             setRequestProperty("Accept", "application/json")
         }

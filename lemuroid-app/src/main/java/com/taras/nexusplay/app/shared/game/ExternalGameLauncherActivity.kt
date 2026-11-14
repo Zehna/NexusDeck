@@ -3,6 +3,7 @@ package com.taras.nexusplay.app.shared.game
 import android.content.Intent
 import android.os.Bundle
 import android.view.View
+import android.widget.Toast
 import androidx.core.view.isVisible
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -56,12 +57,17 @@ class ExternalGameLauncherActivity : ImmersiveActivity() {
 
         setContentView(R.layout.activity_loading)
         if (savedInstanceState == null) {
-            val gameId = intent.data?.pathSegments?.let { it[it.size - 1].toInt() }!!
-
             lifecycleScope.launch {
                 loadingState.value = true
                 try {
-                    loadGame(gameId)
+                    val fileUri = intent.getStringExtra(EXTRA_GAME_FILE_URI)
+                    if (fileUri != null) {
+                        loadGameByFileUri(fileUri)
+                    } else {
+                        val gameId = intent.data?.pathSegments?.lastOrNull()?.toInt()
+                            ?: throw IllegalArgumentException("Missing game id")
+                        loadGame(gameId)
+                    }
                 } catch (e: Throwable) {
                     displayErrorMessage()
                 }
@@ -90,7 +96,24 @@ class ExternalGameLauncherActivity : ImmersiveActivity() {
                 ?: throw IllegalArgumentException("Game not found: $gameId")
 
         delay(animationDuration().toLong())
+        launchGame(game)
+    }
 
+    private suspend fun loadGameByFileUri(fileUri: String) {
+        waitPendingOperations()
+
+        val game = retrogradeDatabase.gameDao().selectByFileUri(fileUri)
+        if (game == null) {
+            Toast.makeText(this, "Game tidak ditemukan di pustaka Lemuroid.", Toast.LENGTH_LONG).show()
+            finish()
+            return
+        }
+
+        delay(animationDuration().toLong())
+        launchGame(game)
+    }
+
+    private suspend fun launchGame(game: com.taras.nexusplay.lib.library.db.entity.Game) {
         val gameLaunchSuccessful =
             gameLauncher.launchGameAsync(
                 this,
@@ -138,5 +161,9 @@ class ExternalGameLauncherActivity : ImmersiveActivity() {
                 }
             }
         }
+    }
+
+    companion object {
+        const val EXTRA_GAME_FILE_URI = "EXTRA_GAME_FILE_URI"
     }
 }

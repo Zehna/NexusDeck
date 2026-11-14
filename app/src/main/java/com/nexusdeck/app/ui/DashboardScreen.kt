@@ -1,8 +1,8 @@
 package com.nexusdeck.app.ui
 
+import android.net.Uri
 import android.view.KeyEvent
 import android.widget.Toast
-import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
@@ -112,11 +112,14 @@ import com.nexusdeck.app.ui.components.HeroSpotlightCarousel
 import com.nexusdeck.app.ui.settings.SettingsScreen
 import com.nexusdeck.app.ui.theme.NexusPalette
 import com.nexusdeck.app.core.engine.EngineManager
+import com.nexusdeck.app.core.engine.EmulatorJsEngine
 import com.nexusdeck.app.core.library.GameLibraryRules
 import com.nexusdeck.app.core.library.GameLibraryScanner
 import com.nexusdeck.app.core.library.LibraryFolderStore
+import com.nexusdeck.app.core.library.LemuroidLibraryBridge
 import com.nexusdeck.app.core.model.GamePlatform
 import com.nexusdeck.app.ui.bios.BiosGuideScreen
+import com.taras.nexusplay.app.shared.settings.StorageFrameworkPickerLauncher
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
@@ -246,6 +249,62 @@ fun DashboardScreen(
     }
     var detectedDownloadForDialog by remember { mutableStateOf<SniffedDownload?>(null) }
     var pendingAutoPlayGame by remember { mutableStateOf<GameItem?>(null) }
+
+    fun launchInstalledGame(
+        game: GameItem,
+        romPath: String,
+        engineConfig: EngineConfig,
+        autoTuneActive: Boolean
+    ) {
+        installManager.markLastPlayed(game)
+        if (EmulatorJsEngine.isSupportedInAppRom(romPath)) {
+            selectedGameForSheet = null
+            activeGameSession = ActiveGameSession(
+                game = game,
+                romPath = romPath,
+                engineConfig = engineConfig,
+                autoTuneActive = autoTuneActive
+            )
+            return
+        }
+
+        if (game.platform !in listOf(GamePlatform.PS2, GamePlatform.PC, GamePlatform.PS3)) {
+            if (!LemuroidLibraryBridge.ensureFolderRegistered(context, libraryFolderStore)) {
+                Toast.makeText(
+                    context,
+                    "Pilih folder game terlebih dahulu agar core gabungan dapat mengindeksnya.",
+                    Toast.LENGTH_LONG
+                ).show()
+                StorageFrameworkPickerLauncher.pickFolder(context)
+                return
+            }
+            if (LemuroidLibraryBridge.launchGame(context, romPath)) {
+                selectedGameForSheet = null
+            } else {
+                Toast.makeText(context, "Tidak dapat membuka core gabungan.", Toast.LENGTH_SHORT).show()
+            }
+            return
+        }
+
+        val result = GameLauncher.launchGame(
+            context = context,
+            game = game,
+            romPath = romPath,
+            engineConfig = engineConfig,
+            autoTuneEnabled = autoTuneActive
+        )
+        when (result) {
+            is LauncherResult.Launched -> selectedGameForSheet = null
+            is LauncherResult.LaunchedWithNotice -> {
+                selectedGameForSheet = null
+                Toast.makeText(context, result.message, Toast.LENGTH_LONG).show()
+            }
+            is LauncherResult.EmulatorNotFound -> missingEmulatorResult = result
+            is LauncherResult.LaunchError -> {
+                Toast.makeText(context, result.message, Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
     // Auto-Play Pipeline: Ketika download & ekstraksi game mencapai 100%, sistem langsung boot game secara otomatis
     val autoPlayEvent by installManager.autoPlayTrigger.collectAsState()
@@ -652,8 +711,7 @@ fun DashboardScreen(
                         ).show()
                     } else {
                         val optimal = AutoTuningEngine.generateOptimalConfig(hardwareSpec, resumeCandidate)
-                        installManager.markLastPlayed(resumeCandidate)
-                        activeGameSession = ActiveGameSession(
+                        launchInstalledGame(
                             game = resumeCandidate,
                             romPath = romPath,
                             engineConfig = optimal,
@@ -699,9 +757,7 @@ fun DashboardScreen(
                 ).show()
             },
             onPlayInAppClick = { romPath, engineConfig, autoTuneActive ->
-                installManager.markLastPlayed(activeGame)
-                selectedGameForSheet = null
-                activeGameSession = ActiveGameSession(
+                launchInstalledGame(
                     game = activeGame,
                     romPath = romPath,
                     engineConfig = engineConfig,
