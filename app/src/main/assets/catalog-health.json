@@ -1,7 +1,7 @@
 {
   "entries": {
     "gba_pokemon_emerald": {
-      "checkedAtEpochMs": 1795526229439,
+      "checkedAtEpochMs": 1795608454390,
       "consecutiveFailures": 0,
       "finalUrl": null,
       "httpStatus": 503,
@@ -10,7 +10,7 @@
       "status": "NOT_CHECKED"
     },
     "gba_super_mario_adv4": {
-      "checkedAtEpochMs": 1795526229439,
+      "checkedAtEpochMs": 1795608454390,
       "consecutiveFailures": 0,
       "finalUrl": null,
       "httpStatus": 503,
@@ -19,8 +19,8 @@
       "status": "NOT_CHECKED"
     },
     "myrient_pokemon_emerald": {
-      "checkedAtEpochMs": 1795526229439,
-      "consecutiveFailures": 16,
+      "checkedAtEpochMs": 1795608454390,
+      "consecutiveFailures": 17,
       "finalUrl": "https://myrient.erista.me/files/No-Intro/Nintendo%20-%20Game%20Boy%20Advance/Pokemon%20-%20Emerald%20Version%20(USA%2C%20Europe).zip",
       "httpStatus": 200,
       "lastAliveAtEpochMs": null,
@@ -28,8 +28,8 @@
       "status": "DEAD"
     },
     "myrient_ps2_shadow_of_colossus": {
-      "checkedAtEpochMs": 1795526229439,
-      "consecutiveFailures": 16,
+      "checkedAtEpochMs": 1795608454390,
+      "consecutiveFailures": 17,
       "finalUrl": "https://myrient.erista.me/files/Redump/Sony%20-%20PlayStation%202/Shadow%20of%20the%20Colossus.zip",
       "httpStatus": 200,
       "lastAliveAtEpochMs": null,
@@ -37,8 +37,8 @@
       "status": "DEAD"
     },
     "myrient_ps2_silent_hill_2": {
-      "checkedAtEpochMs": 1795526229439,
-      "consecutiveFailures": 16,
+      "checkedAtEpochMs": 1795608454390,
+      "consecutiveFailures": 17,
       "finalUrl": "https://myrient.erista.me/files/Redump/Sony%20-%20PlayStation%202/Silent%20Hill%202.zip",
       "httpStatus": 200,
       "lastAliveAtEpochMs": null,
@@ -46,8 +46,8 @@
       "status": "DEAD"
     },
     "myrient_psp_crisis_core": {
-      "checkedAtEpochMs": 1795526229439,
-      "consecutiveFailures": 16,
+      "checkedAtEpochMs": 1795608454390,
+      "consecutiveFailures": 17,
       "finalUrl": "https://myrient.erista.me/files/Redump/Sony%20-%20PlayStation%20Portable/Crisis%20Core%20-%20Final%20Fantasy%20VII.zip",
       "httpStatus": 200,
       "lastAliveAtEpochMs": null,
@@ -55,8 +55,8 @@
       "status": "DEAD"
     },
     "myrient_psp_persona_3_portable": {
-      "checkedAtEpochMs": 1795526229439,
-      "consecutiveFailures": 16,
+      "checkedAtEpochMs": 1795608454390,
+      "consecutiveFailures": 17,
       "finalUrl": "https://myrient.erista.me/files/Redump/Sony%20-%20PlayStation%20Portable/Persona%203%20Portable.zip",
       "httpStatus": 200,
       "lastAliveAtEpochMs": null,
@@ -64,8 +64,8 @@
       "status": "DEAD"
     },
     "myrient_super_mario_advance_4": {
-      "checkedAtEpochMs": 1795526229439,
-      "consecutiveFailures": 16,
+      "checkedAtEpochMs": 1795608454390,
+      "consecutiveFailures": 17,
       "finalUrl": "https://myrient.erista.me/files/No-Intro/Nintendo%20-%20Game%20Boy%20Advance/Super%20Mario%20Advance%204.zip",
       "httpStatus": 200,
       "lastAliveAtEpochMs": null,
@@ -73,8 +73,8 @@
       "status": "DEAD"
     },
     "myrient_zelda_minish_cap": {
-      "checkedAtEpochMs": 1795526229439,
-      "consecutiveFailures": 16,
+      "checkedAtEpochMs": 1795608454390,
+      "consecutiveFailures": 17,
       "finalUrl": "https://myrient.erista.me/files/No-Intro/Nintendo%20-%20Game%20Boy%20Advance/Zelda%20Minish%20Cap.zip",
       "httpStatus": 200,
       "lastAliveAtEpochMs": null,
@@ -82,8 +82,8 @@
       "status": "DEAD"
     },
     "pc_endless_sky": {
-      "checkedAtEpochMs": 1795526229439,
-      "consecutiveFailures": 16,
+      "checkedAtEpochMs": 1795608454390,
+      "consecutiveFailures": 17,
       "finalUrl": "https://github.com/endless-sky/endless-sky/releases/download/v0.10.6/EndlessSky-win64.zip",
       "httpStatus": 404,
       "lastAliveAtEpochMs": null,
@@ -91,7 +91,7 @@
       "status": "DEAD"
     },
     "pc_fallout_nv": {
-      "checkedAtEpochMs": 1795526229439,
+      "checkedAtEpochMs": 1795608454390,
       "consecutiveFailures": 0,
       "finalUrl": null,
       "httpStatus": 503,
@@ -100,16 +100,16 @@
       "status": "NOT_CHECKED"
     },
     "pc_freedoom": {
-      "checkedAtEpochMs": 1795526229439,
+      "checkedAtEpochMs": 1795608454390,
       "consecutiveFailures": 0,
-      "finalUrl": "https://release-assets.githubusercontent.com/github-production-release-asset/4576719/467e6780-f4c3-11e9-9efb-d2ebe568431a?sp=r&sv=2018-11-09&sr=b&spr=https&se=2026-11-24T14%3A06%3A58Z&rscd=attachment%3B+filename%3Dfreedoom-0.12.1.zip&rsct=application%2Foctet-stream&skoid=96c2d410-5711-43a1-aedd-ab1947aa7ab0&sktid=398a6654-997b-47e9-b12b-9515b896b4de&skt=2026-11-24T13%3A06%3A51Z&ske=2026-11-24T14%3A06%3A58Z&sks=b&skv=2018-11-09&sig=OwMVqx4J1itnnHeOrV4wX2x3h41nDZEqVefEJrLpvPs%3D&jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmVsZWFzZS1hc3NldHMuZ2l0aHVidXNlcmNvbnRlbnQuY29tIiwia2V5Ijoia2V5MSIsImV4cCI6MTc5NTUyODA0MywibmJmIjoxNzk1NTI2MjQzLCJwYXRoIjoicmVsZWFzZWFzc2V0cHJvZHVjdGlvbi5ibG9iLmNvcmUud2luZG93cy5uZXQifQ.Nc1WujueHEm18pC5vS4S0zFDzTn_IsaYVd59bmZyrdw&response-content-disposition=attachment%3B%20filename%3Dfreedoom-0.12.1.zip&response-content-type=application%2Foctet-stream",
+      "finalUrl": "https://release-assets.githubusercontent.com/github-production-release-asset/4576719/467e6780-f4c3-11e9-9efb-d2ebe568431a?sp=r&sv=2018-11-09&sr=b&spr=https&se=2026-11-25T12%3A46%3A30Z&rscd=attachment%3B+filename%3Dfreedoom-0.12.1.zip&rsct=application%2Foctet-stream&skoid=96c2d410-5711-43a1-aedd-ab1947aa7ab0&sktid=398a6654-997b-47e9-b12b-9515b896b4de&skt=2026-11-25T11%3A45%3A55Z&ske=2026-11-25T12%3A46%3A30Z&sks=b&skv=2018-11-09&sig=8Y09JqUzLd%2Bod5DfWWS4CJL7I3jOfFfhzU4bckRSakY%3D&jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmVsZWFzZS1hc3NldHMuZ2l0aHVidXNlcmNvbnRlbnQuY29tIiwia2V5Ijoia2V5MSIsImV4cCI6MTc5NTYxMDI3MCwibmJmIjoxNzk1NjA4NDcwLCJwYXRoIjoicmVsZWFzZWFzc2V0cHJvZHVjdGlvbi5ibG9iLmNvcmUud2luZG93cy5uZXQifQ.yezkzC_FFXH2yYUEKFPpAdhZry0xFon3S3S-7Q52UwQ&response-content-disposition=attachment%3B%20filename%3Dfreedoom-0.12.1.zip&response-content-type=application%2Foctet-stream",
       "httpStatus": 200,
-      "lastAliveAtEpochMs": 1795526229439,
+      "lastAliveAtEpochMs": 1795608454390,
       "reason": null,
       "status": "ALIVE"
     },
     "pc_gta_iv": {
-      "checkedAtEpochMs": 1795526229439,
+      "checkedAtEpochMs": 1795608454390,
       "consecutiveFailures": 0,
       "finalUrl": null,
       "httpStatus": 503,
@@ -118,7 +118,7 @@
       "status": "NOT_CHECKED"
     },
     "pc_gta_sa": {
-      "checkedAtEpochMs": 1795526229439,
+      "checkedAtEpochMs": 1795608454390,
       "consecutiveFailures": 0,
       "finalUrl": null,
       "httpStatus": 503,
@@ -127,7 +127,7 @@
       "status": "NOT_CHECKED"
     },
     "pc_half_life_2": {
-      "checkedAtEpochMs": 1795526229439,
+      "checkedAtEpochMs": 1795608454390,
       "consecutiveFailures": 0,
       "finalUrl": null,
       "httpStatus": 503,
@@ -136,17 +136,17 @@
       "status": "NOT_CHECKED"
     },
     "pc_openra": {
-      "checkedAtEpochMs": 1795526229439,
+      "checkedAtEpochMs": 1795608454390,
       "consecutiveFailures": 0,
-      "finalUrl": "https://release-assets.githubusercontent.com/github-production-release-asset/959908/1679e811-1125-4b7f-afc5-e2904e1ecebb?sp=r&sv=2018-11-09&sr=b&spr=https&se=2026-11-24T14%3A11%3A56Z&rscd=attachment%3B+filename%3DOpenRA-Red-Alert-x86_64.AppImage&rsct=application%2Foctet-stream&skoid=96c2d410-5711-43a1-aedd-ab1947aa7ab0&sktid=398a6654-997b-47e9-b12b-9515b896b4de&skt=2026-11-24T13%3A11%3A40Z&ske=2026-11-24T14%3A11%3A56Z&sks=b&skv=2018-11-09&sig=1nWZAgVvohGAs4Ju9u2jFqz6%2Bvy%2BMtcgBKcZC4lJzqw%3D&jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmVsZWFzZS1hc3NldHMuZ2l0aHVidXNlcmNvbnRlbnQuY29tIiwia2V5Ijoia2V5MSIsImV4cCI6MTc5NTUyODA0MiwibmJmIjoxNzk1NTI2MjQyLCJwYXRoIjoicmVsZWFzZWFzc2V0cHJvZHVjdGlvbi5ibG9iLmNvcmUud2luZG93cy5uZXQifQ.NmmmgoQkOiaaBWg_ZHo5lv7awXKUAVid2xvPdqRGD-s&response-content-disposition=attachment%3B%20filename%3DOpenRA-Red-Alert-x86_64.AppImage&response-content-type=application%2Foctet-stream",
+      "finalUrl": "https://release-assets.githubusercontent.com/github-production-release-asset/959908/1679e811-1125-4b7f-afc5-e2904e1ecebb?sp=r&sv=2018-11-09&sr=b&spr=https&se=2026-11-25T12%3A47%3A18Z&rscd=attachment%3B+filename%3DOpenRA-Red-Alert-x86_64.AppImage&rsct=application%2Foctet-stream&skoid=96c2d410-5711-43a1-aedd-ab1947aa7ab0&sktid=398a6654-997b-47e9-b12b-9515b896b4de&skt=2026-11-25T11%3A46%3A52Z&ske=2026-11-25T12%3A47%3A18Z&sks=b&skv=2018-11-09&sig=6H5cEuTAJy4uJhGTslY52r8aBu4%2FOlJIBB1B56DYtuU%3D&jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmVsZWFzZS1hc3NldHMuZ2l0aHVidXNlcmNvbnRlbnQuY29tIiwia2V5Ijoia2V5MSIsImV4cCI6MTc5NTYxMDI3MCwibmJmIjoxNzk1NjA4NDcwLCJwYXRoIjoicmVsZWFzZWFzc2V0cHJvZHVjdGlvbi5ibG9iLmNvcmUud2luZG93cy5uZXQifQ.yezkzC_FFXH2yYUEKFPpAdhZry0xFon3S3S-7Q52UwQ&response-content-disposition=attachment%3B%20filename%3DOpenRA-Red-Alert-x86_64.AppImage&response-content-type=application%2Foctet-stream",
       "httpStatus": 200,
-      "lastAliveAtEpochMs": 1795526229439,
+      "lastAliveAtEpochMs": 1795608454390,
       "reason": null,
       "status": "ALIVE"
     },
     "pc_openttd": {
-      "checkedAtEpochMs": 1795526229439,
-      "consecutiveFailures": 16,
+      "checkedAtEpochMs": 1795608454390,
+      "consecutiveFailures": 17,
       "finalUrl": "https://github.com/OpenTTD/OpenTTD/releases/download/14.1/openttd-14.1-windows-win64.zip",
       "httpStatus": 404,
       "lastAliveAtEpochMs": null,
@@ -154,8 +154,8 @@
       "status": "DEAD"
     },
     "pc_ur_quan_masters": {
-      "checkedAtEpochMs": 1795526229439,
-      "consecutiveFailures": 16,
+      "checkedAtEpochMs": 1795608454390,
+      "consecutiveFailures": 17,
       "finalUrl": "https://sourceforge.net/projects/urquanmastersp/files/latest/download",
       "httpStatus": 404,
       "lastAliveAtEpochMs": null,
@@ -163,25 +163,25 @@
       "status": "DEAD"
     },
     "ps1_castlevania_sotn": {
-      "checkedAtEpochMs": 1795526229439,
+      "checkedAtEpochMs": 1795608454390,
       "consecutiveFailures": 0,
       "finalUrl": "https://dn710605.ca.archive.org/0/items/ps1-rip-chd-ck/Castlevania%20-%20Symphony%20Of%20The%20Night.chd",
       "httpStatus": 200,
-      "lastAliveAtEpochMs": 1795526229439,
+      "lastAliveAtEpochMs": 1795608454390,
       "reason": null,
       "status": "ALIVE"
     },
     "ps1_tekken_3": {
-      "checkedAtEpochMs": 1795526229439,
+      "checkedAtEpochMs": 1795608454390,
       "consecutiveFailures": 0,
       "finalUrl": "https://dn710605.ca.archive.org/0/items/ps1-rip-chd-ck/Tekken%203.chd",
       "httpStatus": 200,
-      "lastAliveAtEpochMs": 1795526229439,
+      "lastAliveAtEpochMs": 1795608454390,
       "reason": null,
       "status": "ALIVE"
     },
     "ps2_black": {
-      "checkedAtEpochMs": 1795526229439,
+      "checkedAtEpochMs": 1795608454390,
       "consecutiveFailures": 0,
       "finalUrl": null,
       "httpStatus": 503,
@@ -190,7 +190,7 @@
       "status": "NOT_CHECKED"
     },
     "ps2_bully": {
-      "checkedAtEpochMs": 1795526229439,
+      "checkedAtEpochMs": 1795608454390,
       "consecutiveFailures": 0,
       "finalUrl": null,
       "httpStatus": 503,
@@ -199,7 +199,7 @@
       "status": "NOT_CHECKED"
     },
     "ps2_dbz_bt3": {
-      "checkedAtEpochMs": 1795526229439,
+      "checkedAtEpochMs": 1795608454390,
       "consecutiveFailures": 0,
       "finalUrl": null,
       "httpStatus": 503,
@@ -208,7 +208,7 @@
       "status": "NOT_CHECKED"
     },
     "ps2_gow_2": {
-      "checkedAtEpochMs": 1795526229439,
+      "checkedAtEpochMs": 1795608454390,
       "consecutiveFailures": 0,
       "finalUrl": null,
       "httpStatus": 503,
@@ -217,7 +217,7 @@
       "status": "NOT_CHECKED"
     },
     "ps2_gta_sa": {
-      "checkedAtEpochMs": 1795526229439,
+      "checkedAtEpochMs": 1795608454390,
       "consecutiveFailures": 0,
       "finalUrl": null,
       "httpStatus": 503,
@@ -226,7 +226,7 @@
       "status": "NOT_CHECKED"
     },
     "ps2_naruto_un5": {
-      "checkedAtEpochMs": 1795526229439,
+      "checkedAtEpochMs": 1795608454390,
       "consecutiveFailures": 0,
       "finalUrl": null,
       "httpStatus": 503,
@@ -235,7 +235,7 @@
       "status": "NOT_CHECKED"
     },
     "ps2_nfs_ug2": {
-      "checkedAtEpochMs": 1795526229439,
+      "checkedAtEpochMs": 1795608454390,
       "consecutiveFailures": 0,
       "finalUrl": null,
       "httpStatus": 503,
@@ -244,7 +244,7 @@
       "status": "NOT_CHECKED"
     },
     "ps2_resident_evil_4": {
-      "checkedAtEpochMs": 1795526229439,
+      "checkedAtEpochMs": 1795608454390,
       "consecutiveFailures": 0,
       "finalUrl": null,
       "httpStatus": 503,
@@ -253,7 +253,7 @@
       "status": "NOT_CHECKED"
     },
     "ps2_tekken_5": {
-      "checkedAtEpochMs": 1795526229439,
+      "checkedAtEpochMs": 1795608454390,
       "consecutiveFailures": 0,
       "finalUrl": null,
       "httpStatus": 503,
@@ -262,7 +262,7 @@
       "status": "NOT_CHECKED"
     },
     "ps3_persona_5": {
-      "checkedAtEpochMs": 1795526229439,
+      "checkedAtEpochMs": 1795608454390,
       "consecutiveFailures": 0,
       "finalUrl": null,
       "httpStatus": 503,
@@ -271,7 +271,7 @@
       "status": "NOT_CHECKED"
     },
     "ps3_rdr": {
-      "checkedAtEpochMs": 1795526229439,
+      "checkedAtEpochMs": 1795608454390,
       "consecutiveFailures": 0,
       "finalUrl": null,
       "httpStatus": 503,
@@ -280,7 +280,7 @@
       "status": "NOT_CHECKED"
     },
     "ps3_tlou": {
-      "checkedAtEpochMs": 1795526229439,
+      "checkedAtEpochMs": 1795608454390,
       "consecutiveFailures": 0,
       "finalUrl": null,
       "httpStatus": 503,
@@ -289,8 +289,8 @@
       "status": "NOT_CHECKED"
     },
     "psp_dbz_shin_budokai_2": {
-      "checkedAtEpochMs": 1795526229439,
-      "consecutiveFailures": 16,
+      "checkedAtEpochMs": 1795608454390,
+      "consecutiveFailures": 17,
       "finalUrl": "https://dn721903.ca.archive.org/0/items/psp-homebrew-library/dbz_shin_budokai_2.iso",
       "httpStatus": 404,
       "lastAliveAtEpochMs": null,
@@ -298,17 +298,17 @@
       "status": "DEAD"
     },
     "psp_gow_chains_of_olympus": {
-      "checkedAtEpochMs": 1795526229439,
-      "consecutiveFailures": 16,
-      "finalUrl": "https://ia801809.us.archive.org/21/items/psp-homebrew-library/gow_chains_of_olympus.iso",
+      "checkedAtEpochMs": 1795608454390,
+      "consecutiveFailures": 17,
+      "finalUrl": "https://dn721903.ca.archive.org/0/items/psp-homebrew-library/gow_chains_of_olympus.iso",
       "httpStatus": 404,
       "lastAliveAtEpochMs": null,
       "reason": "http-404",
       "status": "DEAD"
     },
     "psp_gow_ghost_of_sparta": {
-      "checkedAtEpochMs": 1795526229439,
-      "consecutiveFailures": 16,
+      "checkedAtEpochMs": 1795608454390,
+      "consecutiveFailures": 17,
       "finalUrl": "https://dn721903.ca.archive.org/0/items/psp-homebrew-library/gow_ghost_of_sparta.iso",
       "httpStatus": 404,
       "lastAliveAtEpochMs": null,
@@ -316,8 +316,8 @@
       "status": "DEAD"
     },
     "psp_gta_vcs": {
-      "checkedAtEpochMs": 1795526229439,
-      "consecutiveFailures": 16,
+      "checkedAtEpochMs": 1795608454390,
+      "consecutiveFailures": 17,
       "finalUrl": "https://dn721903.ca.archive.org/0/items/psp-homebrew-library/gta_vice_city_stories.iso",
       "httpStatus": 404,
       "lastAliveAtEpochMs": null,
@@ -325,8 +325,8 @@
       "status": "DEAD"
     },
     "psp_mh_freedom_unite": {
-      "checkedAtEpochMs": 1795526229439,
-      "consecutiveFailures": 16,
+      "checkedAtEpochMs": 1795608454390,
+      "consecutiveFailures": 17,
       "finalUrl": "https://dn721903.ca.archive.org/0/items/psp-homebrew-library/monster_hunter_freedom_unite.iso",
       "httpStatus": 404,
       "lastAliveAtEpochMs": null,
@@ -334,8 +334,8 @@
       "status": "DEAD"
     },
     "psp_naruto_un_impact": {
-      "checkedAtEpochMs": 1795526229439,
-      "consecutiveFailures": 16,
+      "checkedAtEpochMs": 1795608454390,
+      "consecutiveFailures": 17,
       "finalUrl": "https://dn721903.ca.archive.org/0/items/psp-homebrew-library/naruto_ultimate_ninja_impact.iso",
       "httpStatus": 404,
       "lastAliveAtEpochMs": null,
@@ -343,17 +343,17 @@
       "status": "DEAD"
     },
     "psp_nfs_mw": {
-      "checkedAtEpochMs": 1795526229439,
-      "consecutiveFailures": 16,
-      "finalUrl": "https://ia601809.us.archive.org/21/items/psp-homebrew-library/nfs_most_wanted_510.iso",
+      "checkedAtEpochMs": 1795608454390,
+      "consecutiveFailures": 17,
+      "finalUrl": "https://dn721903.ca.archive.org/0/items/psp-homebrew-library/nfs_most_wanted_510.iso",
       "httpStatus": 404,
       "lastAliveAtEpochMs": null,
       "reason": "http-404",
       "status": "DEAD"
     },
     "psp_tekken_6": {
-      "checkedAtEpochMs": 1795526229439,
-      "consecutiveFailures": 16,
+      "checkedAtEpochMs": 1795608454390,
+      "consecutiveFailures": 17,
       "finalUrl": "https://dn721903.ca.archive.org/0/items/psp-homebrew-library/tekken_6_psp.iso",
       "httpStatus": 404,
       "lastAliveAtEpochMs": null,
@@ -361,7 +361,7 @@
       "status": "DEAD"
     }
   },
-  "generatedAtEpochMs": 1795526229439,
+  "generatedAtEpochMs": 1795608454390,
   "generatedBy": "ci",
   "version": 1
 }
