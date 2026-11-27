@@ -1,88 +1,88 @@
 {
   "entries": {
     "aps3e": {
-      "checkedAtEpochMs": 1795697914617,
+      "checkedAtEpochMs": 1795784093216,
       "consecutiveFailures": 0,
       "finalUrl": "https://play.google.com/store/apps/details?id=aenu.aps3e",
       "httpStatus": 200,
-      "lastAliveAtEpochMs": 1795697914617,
+      "lastAliveAtEpochMs": 1795784093216,
       "reason": null,
       "status": "ALIVE"
     },
     "armsx3": {
-      "checkedAtEpochMs": 1795697914688,
+      "checkedAtEpochMs": 1795784093403,
       "consecutiveFailures": 0,
       "finalUrl": "https://play.google.com/store/apps/details?id=com.armsx3.play",
       "httpStatus": 200,
-      "lastAliveAtEpochMs": 1795697914688,
+      "lastAliveAtEpochMs": 1795784093403,
       "reason": null,
       "status": "ALIVE"
     },
     "azahar": {
-      "checkedAtEpochMs": 1795697914313,
+      "checkedAtEpochMs": 1795784092882,
       "consecutiveFailures": 0,
-      "finalUrl": "https://release-assets.githubusercontent.com/github-production-release-asset/767183985/29ece450-f64c-44f7-aee8-4a6da420b065?sp=r&sv=2018-11-09&sr=b&spr=https&se=2026-11-26T13%3A46%3A22Z&rscd=attachment%3B+filename%3Dazahar-android-vanilla-2126.2.apk&rsct=application%2Fvnd.android.package-archive&skoid=96c2d410-5711-43a1-aedd-ab1947aa7ab0&sktid=398a6654-997b-47e9-b12b-9515b896b4de&skt=2026-11-26T12%3A45%3A54Z&ske=2026-11-26T13%3A46%3A22Z&sks=b&skv=2018-11-09&sig=BkTZN3WxKyqOdFLbIqtPPjyNlN%2BzdLUnymAK9nSBtqY%3D&jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmVsZWFzZS1hc3NldHMuZ2l0aHVidXNlcmNvbnRlbnQuY29tIiwia2V5Ijoia2V5MSIsImV4cCI6MTc5NTY5OTcxNCwibmJmIjoxNzk1Njk3OTE0LCJwYXRoIjoicmVsZWFzZWFzc2V0cHJvZHVjdGlvbi5ibG9iLmNvcmUud2luZG93cy5uZXQifQ.hk0_PrSNuDGsEakUmRXxp-m6KZQkfT-WQlBgDMICY5o&response-content-disposition=attachment%3B%20filename%3Dazahar-android-vanilla-2126.2.apk&response-content-type=application%2Fvnd.android.package-archive",
+      "finalUrl": "https://release-assets.githubusercontent.com/github-production-release-asset/767183985/29ece450-f64c-44f7-aee8-4a6da420b065?sp=r&sv=2018-11-09&sr=b&spr=https&se=2026-11-27T13%3A54%3A53Z&rscd=attachment%3B+filename%3Dazahar-android-vanilla-2126.2.apk&rsct=application%2Fvnd.android.package-archive&skoid=96c2d410-5711-43a1-aedd-ab1947aa7ab0&sktid=398a6654-997b-47e9-b12b-9515b896b4de&skt=2026-11-27T12%3A54%3A34Z&ske=2026-11-27T13%3A54%3A53Z&sks=b&skv=2018-11-09&sig=vAHywpcArDvLD4gg6iy0tTl3uK5H4tGG19aB3%2Fv7i5E%3D&jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmVsZWFzZS1hc3NldHMuZ2l0aHVidXNlcmNvbnRlbnQuY29tIiwia2V5Ijoia2V5MSIsImV4cCI6MTc5NTc4NTg5MywibmJmIjoxNzk1Nzg0MDkzLCJwYXRoIjoicmVsZWFzZWFzc2V0cHJvZHVjdGlvbi5ibG9iLmNvcmUud2luZG93cy5uZXQifQ.S2_sjMBOr-mNtZ3AJQ1sJzm-Anr550x0rLVfGyyrd48&response-content-disposition=attachment%3B%20filename%3Dazahar-android-vanilla-2126.2.apk&response-content-type=application%2Fvnd.android.package-archive",
       "httpStatus": 200,
-      "lastAliveAtEpochMs": 1795697914313,
+      "lastAliveAtEpochMs": 1795784092882,
       "reason": null,
       "status": "ALIVE"
     },
     "duckstation": {
-      "checkedAtEpochMs": 1795697914686,
+      "checkedAtEpochMs": 1795784093390,
       "consecutiveFailures": 0,
       "finalUrl": "https://play.google.com/store/apps/details?id=com.github.stenzek.duckstation",
       "httpStatus": 200,
-      "lastAliveAtEpochMs": 1795697914686,
+      "lastAliveAtEpochMs": 1795784093390,
       "reason": null,
       "status": "ALIVE"
     },
     "gamenative": {
-      "checkedAtEpochMs": 1795697914191,
+      "checkedAtEpochMs": 1795784092648,
       "consecutiveFailures": 0,
-      "finalUrl": "https://release-assets.githubusercontent.com/github-production-release-asset/970046788/ec4b3aae-3df0-47fe-b7c0-00ea0077f3df?sp=r&sv=2018-11-09&sr=b&spr=https&se=2026-11-26T13%3A53%3A38Z&rscd=attachment%3B+filename%3Dgamenative-v1.4.0.apk&rsct=application%2Fvnd.android.package-archive&skoid=96c2d410-5711-43a1-aedd-ab1947aa7ab0&sktid=398a6654-997b-47e9-b12b-9515b896b4de&skt=2026-11-26T12%3A52%3A53Z&ske=2026-11-26T13%3A53%3A38Z&sks=b&skv=2018-11-09&sig=WldB3M%2FqW50o3y2UcgL1pfXJ3Al7l4XjtFH%2FQLLzvuY%3D&jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmVsZWFzZS1hc3NldHMuZ2l0aHVidXNlcmNvbnRlbnQuY29tIiwia2V5Ijoia2V5MSIsImV4cCI6MTc5NTcwMTUxNCwibmJmIjoxNzk1Njk3OTE0LCJwYXRoIjoicmVsZWFzZWFzc2V0cHJvZHVjdGlvbi5ibG9iLmNvcmUud2luZG93cy5uZXQifQ.Bu8lN8uUiKKFKvm0gJJFdHDV15SyA5Vrx6FVZWgAQSI&response-content-disposition=attachment%3B%20filename%3Dgamenative-v1.4.0.apk&response-content-type=application%2Fvnd.android.package-archive",
+      "finalUrl": "https://release-assets.githubusercontent.com/github-production-release-asset/970046788/ec4b3aae-3df0-47fe-b7c0-00ea0077f3df?sp=r&sv=2018-11-09&sr=b&spr=https&se=2026-11-27T13%3A55%3A02Z&rscd=attachment%3B+filename%3Dgamenative-v1.4.0.apk&rsct=application%2Fvnd.android.package-archive&skoid=96c2d410-5711-43a1-aedd-ab1947aa7ab0&sktid=398a6654-997b-47e9-b12b-9515b896b4de&skt=2026-11-27T12%3A54%3A24Z&ske=2026-11-27T13%3A55%3A02Z&sks=b&skv=2018-11-09&sig=C4Lk2WGhkcHhyKusgBdNpFYSJyjkISHIETwyc4Av6x0%3D&jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmVsZWFzZS1hc3NldHMuZ2l0aHVidXNlcmNvbnRlbnQuY29tIiwia2V5Ijoia2V5MSIsImV4cCI6MTc5NTc4NzY5MiwibmJmIjoxNzk1Nzg0MDkyLCJwYXRoIjoicmVsZWFzZWFzc2V0cHJvZHVjdGlvbi5ibG9iLmNvcmUud2luZG93cy5uZXQifQ.pKVN5UHbrEXvu6oXIBjWTKWDC7WUXZw6KozVz-AlOCk&response-content-disposition=attachment%3B%20filename%3Dgamenative-v1.4.0.apk&response-content-type=application%2Fvnd.android.package-archive",
       "httpStatus": 200,
-      "lastAliveAtEpochMs": 1795697914191,
+      "lastAliveAtEpochMs": 1795784092648,
       "reason": null,
       "status": "ALIVE"
     },
     "lemuroid": {
-      "checkedAtEpochMs": 1795697914751,
+      "checkedAtEpochMs": 1795784093413,
       "consecutiveFailures": 0,
-      "finalUrl": "https://release-assets.githubusercontent.com/github-production-release-asset/226883777/d44f8c3c-c70e-4d4c-a8dc-c323f3f3cf1a?sp=r&sv=2018-11-09&sr=b&spr=https&se=2026-11-26T13%3A46%3A43Z&rscd=attachment%3B+filename%3Dlemuroid-app-free-dynamic-release.apk&rsct=application%2Fvnd.android.package-archive&skoid=96c2d410-5711-43a1-aedd-ab1947aa7ab0&sktid=398a6654-997b-47e9-b12b-9515b896b4de&skt=2026-11-26T12%3A46%3A06Z&ske=2026-11-26T13%3A46%3A43Z&sks=b&skv=2018-11-09&sig=fYLjAiET03mXmj%2Bcp0Wthn1y0mM%2BahYXCIZFNulVc0o%3D&jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmVsZWFzZS1hc3NldHMuZ2l0aHVidXNlcmNvbnRlbnQuY29tIiwia2V5Ijoia2V5MSIsImV4cCI6MTc5NTY5OTcxNCwibmJmIjoxNzk1Njk3OTE0LCJwYXRoIjoicmVsZWFzZWFzc2V0cHJvZHVjdGlvbi5ibG9iLmNvcmUud2luZG93cy5uZXQifQ.hk0_PrSNuDGsEakUmRXxp-m6KZQkfT-WQlBgDMICY5o&response-content-disposition=attachment%3B%20filename%3Dlemuroid-app-free-dynamic-release.apk&response-content-type=application%2Fvnd.android.package-archive",
+      "finalUrl": "https://release-assets.githubusercontent.com/github-production-release-asset/226883777/d44f8c3c-c70e-4d4c-a8dc-c323f3f3cf1a?sp=r&sv=2018-11-09&sr=b&spr=https&se=2026-11-27T13%3A53%3A19Z&rscd=attachment%3B+filename%3Dlemuroid-app-free-dynamic-release.apk&rsct=application%2Fvnd.android.package-archive&skoid=96c2d410-5711-43a1-aedd-ab1947aa7ab0&sktid=398a6654-997b-47e9-b12b-9515b896b4de&skt=2026-11-27T12%3A52%3A41Z&ske=2026-11-27T13%3A53%3A19Z&sks=b&skv=2018-11-09&sig=ywuoVxv6bF383BGCayGTApjXs9G1yA9%2BoO6bnZo9ht4%3D&jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmVsZWFzZS1hc3NldHMuZ2l0aHVidXNlcmNvbnRlbnQuY29tIiwia2V5Ijoia2V5MSIsImV4cCI6MTc5NTc4NTg5MywibmJmIjoxNzk1Nzg0MDkzLCJwYXRoIjoicmVsZWFzZWFzc2V0cHJvZHVjdGlvbi5ibG9iLmNvcmUud2luZG93cy5uZXQifQ.S2_sjMBOr-mNtZ3AJQ1sJzm-Anr550x0rLVfGyyrd48&response-content-disposition=attachment%3B%20filename%3Dlemuroid-app-free-dynamic-release.apk&response-content-type=application%2Fvnd.android.package-archive",
       "httpStatus": 200,
-      "lastAliveAtEpochMs": 1795697914751,
+      "lastAliveAtEpochMs": 1795784093413,
       "reason": null,
       "status": "ALIVE"
     },
     "melonds": {
-      "checkedAtEpochMs": 1795697914192,
+      "checkedAtEpochMs": 1795784092649,
       "consecutiveFailures": 0,
-      "finalUrl": "https://release-assets.githubusercontent.com/github-production-release-asset/159060557/c3579061-5c12-414c-8111-d5ee4efebe61?sp=r&sv=2018-11-09&sr=b&spr=https&se=2026-11-26T13%3A53%3A33Z&rscd=attachment%3B+filename%3Dapp-gitHub-prod-release.apk&rsct=application%2Fvnd.android.package-archive&skoid=96c2d410-5711-43a1-aedd-ab1947aa7ab0&sktid=398a6654-997b-47e9-b12b-9515b896b4de&skt=2026-11-26T12%3A52%3A41Z&ske=2026-11-26T13%3A53%3A33Z&sks=b&skv=2018-11-09&sig=14qiJ4LXXOmDDDSRtn0O%2BQDBTlhMrwQsdDruUlmVCGY%3D&jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmVsZWFzZS1hc3NldHMuZ2l0aHVidXNlcmNvbnRlbnQuY29tIiwia2V5Ijoia2V5MSIsImV4cCI6MTc5NTY5OTcxNCwibmJmIjoxNzk1Njk3OTE0LCJwYXRoIjoicmVsZWFzZWFzc2V0cHJvZHVjdGlvbi5ibG9iLmNvcmUud2luZG93cy5uZXQifQ.hk0_PrSNuDGsEakUmRXxp-m6KZQkfT-WQlBgDMICY5o&response-content-disposition=attachment%3B%20filename%3Dapp-gitHub-prod-release.apk&response-content-type=application%2Fvnd.android.package-archive",
+      "finalUrl": "https://release-assets.githubusercontent.com/github-production-release-asset/159060557/c3579061-5c12-414c-8111-d5ee4efebe61?sp=r&sv=2018-11-09&sr=b&spr=https&se=2026-11-27T13%3A53%3A06Z&rscd=attachment%3B+filename%3Dapp-gitHub-prod-release.apk&rsct=application%2Fvnd.android.package-archive&skoid=96c2d410-5711-43a1-aedd-ab1947aa7ab0&sktid=398a6654-997b-47e9-b12b-9515b896b4de&skt=2026-11-27T12%3A52%3A26Z&ske=2026-11-27T13%3A53%3A06Z&sks=b&skv=2018-11-09&sig=P2p5MQXi5uP9H7HtQeFzWAPgG4r0bFSGVlFoX99Ajiw%3D&jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmVsZWFzZS1hc3NldHMuZ2l0aHVidXNlcmNvbnRlbnQuY29tIiwia2V5Ijoia2V5MSIsImV4cCI6MTc5NTc4NTg5MiwibmJmIjoxNzk1Nzg0MDkyLCJwYXRoIjoicmVsZWFzZWFzc2V0cHJvZHVjdGlvbi5ibG9iLmNvcmUud2luZG93cy5uZXQifQ.8i7ptIYB1mRUYmjxqlUNHu6vWQ_AVPIQXw-waxGl4bc&response-content-disposition=attachment%3B%20filename%3Dapp-gitHub-prod-release.apk&response-content-type=application%2Fvnd.android.package-archive",
       "httpStatus": 200,
-      "lastAliveAtEpochMs": 1795697914192,
+      "lastAliveAtEpochMs": 1795784092649,
       "reason": null,
       "status": "ALIVE"
     },
     "nethersx2": {
-      "checkedAtEpochMs": 1795697914191,
+      "checkedAtEpochMs": 1795784092648,
       "consecutiveFailures": 0,
-      "finalUrl": "https://release-assets.githubusercontent.com/github-production-release-asset/708071401/8eace8f0-a3bf-4289-b1e0-22830c6bda57?sp=r&sv=2018-11-09&sr=b&spr=https&se=2026-11-26T13%3A57%3A54Z&rscd=attachment%3B+filename%3DNetherSX2-v2.2n-3668.apk&rsct=application%2Fvnd.android.package-archive&skoid=96c2d410-5711-43a1-aedd-ab1947aa7ab0&sktid=398a6654-997b-47e9-b12b-9515b896b4de&skt=2026-11-26T12%3A57%3A24Z&ske=2026-11-26T13%3A57%3A54Z&sks=b&skv=2018-11-09&sig=tS3kyfOwx%2F%2FpRxuM3hJtGXpMGRoJkdWGN4rgwabU4vE%3D&jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmVsZWFzZS1hc3NldHMuZ2l0aHVidXNlcmNvbnRlbnQuY29tIiwia2V5Ijoia2V5MSIsImV4cCI6MTc5NTY5OTcxNCwibmJmIjoxNzk1Njk3OTE0LCJwYXRoIjoicmVsZWFzZWFzc2V0cHJvZHVjdGlvbi5ibG9iLmNvcmUud2luZG93cy5uZXQifQ.hk0_PrSNuDGsEakUmRXxp-m6KZQkfT-WQlBgDMICY5o&response-content-disposition=attachment%3B%20filename%3DNetherSX2-v2.2n-3668.apk&response-content-type=application%2Fvnd.android.package-archive",
+      "finalUrl": "https://release-assets.githubusercontent.com/github-production-release-asset/708071401/8eace8f0-a3bf-4289-b1e0-22830c6bda57?sp=r&sv=2018-11-09&sr=b&spr=https&se=2026-11-27T13%3A55%3A11Z&rscd=attachment%3B+filename%3DNetherSX2-v2.2n-3668.apk&rsct=application%2Fvnd.android.package-archive&skoid=96c2d410-5711-43a1-aedd-ab1947aa7ab0&sktid=398a6654-997b-47e9-b12b-9515b896b4de&skt=2026-11-27T12%3A54%3A33Z&ske=2026-11-27T13%3A55%3A11Z&sks=b&skv=2018-11-09&sig=aX27AMMeZEQbYv1YDVnL8RffJM190PYdsHXelfnt6lE%3D&jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmVsZWFzZS1hc3NldHMuZ2l0aHVidXNlcmNvbnRlbnQuY29tIiwia2V5Ijoia2V5MSIsImV4cCI6MTc5NTc4NTg5MiwibmJmIjoxNzk1Nzg0MDkyLCJwYXRoIjoicmVsZWFzZWFzc2V0cHJvZHVjdGlvbi5ibG9iLmNvcmUud2luZG93cy5uZXQifQ.8i7ptIYB1mRUYmjxqlUNHu6vWQ_AVPIQXw-waxGl4bc&response-content-disposition=attachment%3B%20filename%3DNetherSX2-v2.2n-3668.apk&response-content-type=application%2Fvnd.android.package-archive",
       "httpStatus": 200,
-      "lastAliveAtEpochMs": 1795697914191,
+      "lastAliveAtEpochMs": 1795784092648,
       "reason": null,
       "status": "ALIVE"
     },
     "ppsspp": {
-      "checkedAtEpochMs": 1795697914190,
+      "checkedAtEpochMs": 1795784092647,
       "consecutiveFailures": 0,
       "finalUrl": "https://play.google.com/store/apps/details?id=org.ppsspp.ppsspp",
       "httpStatus": 200,
-      "lastAliveAtEpochMs": 1795697914190,
+      "lastAliveAtEpochMs": 1795784092647,
       "reason": null,
       "status": "ALIVE"
     },
     "sudachi": {
-      "checkedAtEpochMs": 1795697914617,
+      "checkedAtEpochMs": 1795784093216,
       "consecutiveFailures": 0,
       "finalUrl": "",
       "httpStatus": -1,
@@ -91,7 +91,7 @@
       "status": "UNAVAILABLE"
     }
   },
-  "generatedAtEpochMs": 1795697914190,
+  "generatedAtEpochMs": 1795784092647,
   "generatedBy": "tools/check-engines.py (v1.2.0)",
   "version": 1
 }
